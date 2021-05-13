@@ -4791,6 +4791,15 @@ static bool loadSaveDroid(const char *pFileName, DROID **ppsCurrentDroidLists)
 			psDroid->id = id; // force correct ID, unless ID is set to eg -1, in which case we should keep new ID (useful for starting units in campaign)
 		}
 		ASSERT(id != 0, "Droid ID should never be zero here");
+		// conditional check so that existing saved games don't break
+		// TODO remove conditional someplace in future
+		if (ini.contains("originalBody"))
+		{
+			// we need to set "originalBody" before setting "body", otherwise CHECK_DROID throws assertion errors
+			// we cannot use droidUpgradeBody here to calculate "originalBody", because upgrades aren't loaded yet
+			// so it's much simplier just store/retrieve originalBody value
+			psDroid->originalBody = ini.value("originalBody").toInt();
+		}
 		psDroid->body = healthValue(ini, psDroid->originalBody);
 		ASSERT(psDroid->body != 0, "%s : %d has zero hp!", pFileName, i);
 		psDroid->experience = ini.value("experience", 0).toInt();
@@ -4917,7 +4926,7 @@ static nlohmann::json writeDroid(DROID *psCurr, bool onMission, int &counter)
 {
 	nlohmann::json droidObj = nlohmann::json::object();
 	droidObj["name"] = psCurr->aName;
-
+	droidObj["originalBody"] = psCurr->originalBody;
 	// write common BASE_OBJECT info
 	writeSaveObjectJSON(droidObj, psCurr);
 
@@ -5515,7 +5524,14 @@ static bool loadSaveStructure2(const char *pFileName, STRUCTURE **ppList)
 		default:
 			break;
 		}
-		psStructure->body = healthValue(ini, structureBody(psStructure));
+		// conditionally check so we don't break existnig saves
+		// TODO remove conditional someplace in future
+		if (ini.contains("upgradeHitpoints"))
+		{
+			psStructure->pStructureType->upgrade[psStructure->player].hitpoints = ini.value("upgradeHitpoints").toInt();
+		}
+		
+		psStructure->body =  healthValue(ini, structureBody(psStructure));
 		psStructure->currentBuildPts = ini.value("currentBuildPts", structureBuildPointsToCompletion(*psStructure)).toInt();
 		if (psStructure->status == SS_BUILT)
 		{
@@ -5607,7 +5623,7 @@ bool writeStructFile(const char *pFileName)
 		{
 			ini.beginGroup("structure_" + (WzString::number(counter++).leftPadToMinimumLength(WzUniCodepoint::fromASCII('0'), 10)));  // Zero padded so that alphabetical sort works.
 			ini.setValue("name", psCurr->pStructureType->id);
-
+			ini.setValue("upgradeHitpoints", psCurr->pStructureType->upgrade[psCurr->player].hitpoints);
 			writeSaveObject(ini, psCurr);
 
 			if (psCurr->resistance > 0)
