@@ -1532,12 +1532,18 @@ void orderDroidBase(DROID *psDroid, DROID_ORDER_DATA *psOrder)
 		if (psOrder->psObj == nullptr)
 		{
 			int iRepairFacDistSq = 0;
-
+			DROID *psNext = nullptr;
+			DROID *pSRepairDroid = nullptr;
+			STRUCTURE *psHq = nullptr;
 			psRepairFac = nullptr;
 			for (psStruct = apsStructLists[psDroid->player]; psStruct; psStruct = psStruct->psNext)
 			{
-				if ((psStruct->pStructureType->type == REF_REPAIR_FACILITY) ||
-				    ((psStruct->pStructureType->type == REF_HQ) && (psRepairFac == nullptr)))
+				if ((psStruct->pStructureType->type == REF_HQ) && (psRepairFac == nullptr))
+				{
+					psHq = psStruct;
+					continue;
+				}
+				if (psStruct->pStructureType->type == REF_REPAIR_FACILITY)
 				{
 					int iStructDistSq = droidSqDist(psDroid, psStruct);
 
@@ -1547,14 +1553,49 @@ void orderDroidBase(DROID *psDroid, DROID_ORDER_DATA *psOrder)
 					}
 
 					/* Choose current structure if first repair facility found or nearer than previously chosen facility, or is built */
-					if (psRepairFac == nullptr || psRepairFac->pStructureType->type == REF_HQ || iRepairFacDistSq > iStructDistSq
-					    || (psRepairFac->status != SS_BUILT && psStruct->status == SS_BUILT))
+					if (psRepairFac == nullptr  || iRepairFacDistSq > iStructDistSq || 
+						(psRepairFac->status != SS_BUILT && psStruct->status == SS_BUILT))
 					{
 						psRepairFac = psStruct;
 						iRepairFacDistSq = iStructDistSq;
 					}
 				}
 			}
+			// check maybe we have a repair droid, but only if no repair facility were found
+			// but not if current droid is a transporter tho... it's big and heavy
+			if (psRepairFac == nullptr && !isTransporter(psDroid))
+			{
+				int bestDistToRepair = 0;
+				for (DROID *psCurr = apsDroidLists[psDroid->player]; psCurr != nullptr; psCurr = psNext)
+				{
+					psNext = psCurr->psNext;
+					if (psCurr->droidType == DROID_REPAIR || psCurr->droidType == DROID_CYBORG_REPAIR)
+					{
+						int thisDistToRepair = droidSqDist(psDroid, psCurr);
+						if (thisDistToRepair <= 0)
+						{
+							continue; // unreachable
+						}
+						if (pSRepairDroid == nullptr || bestDistToRepair > thisDistToRepair)
+						{
+							bestDistToRepair = thisDistToRepair;
+							pSRepairDroid = psCurr;
+						}
+					}
+				}
+				// we found a repair droid
+				if (pSRepairDroid != nullptr)
+				{
+					// move to the droid
+					psDroid->order = DroidOrder(psOrder->type, Vector2i(pSRepairDroid->pos.x,pSRepairDroid->pos.y));
+					psDroid->order.pos = pSRepairDroid->pos.xy();
+					objTrace(psDroid->id, "Go to repair droid at (%d, %d) using (%d, %d)!", pSRepairDroid->pos.x, pSRepairDroid->pos.y, psDroid->order.pos.x, psDroid->order.pos.y);
+					actionDroid(psDroid, DACTION_MOVE, psDroid->order.pos.x, psDroid->order.pos.y);
+					break;
+				} 
+			}
+			// fallback to HQ
+			psRepairFac = psRepairFac != nullptr ? psRepairFac: psHq;
 		}
 		else
 		{
@@ -1600,6 +1641,7 @@ void orderDroidBase(DROID *psDroid, DROID_ORDER_DATA *psOrder)
 				objTrace(psDroid->id, "could not RTR, doing RTL instead");
 				orderDroid(psDroid, DORDER_RTB, ModeImmediate);
 			}
+
 		}
 		break;
 	case DORDER_EMBARK:

@@ -1176,7 +1176,6 @@ static bool droidUpdateDroidRepairBase(DROID *psRepairDroid, DROID *psDroidToRep
 	}
 
 	CHECK_DROID(psRepairDroid);
-
 	/* if not finished repair return true else complete repair and return false */
 	return psDroidToRepair->body < psDroidToRepair->originalBody;
 }
@@ -1188,8 +1187,13 @@ bool droidUpdateDroidRepair(DROID *psRepairDroid)
 
 	DROID *psDroidToRepair = (DROID *)psRepairDroid->psActionTarget[0];
 	ASSERT_OR_RETURN(false, psDroidToRepair->type == OBJ_DROID, "Target is not a unit");
-
-	return droidUpdateDroidRepairBase(psRepairDroid, psDroidToRepair);
+	bool needMoreRepair = droidUpdateDroidRepairBase(psRepairDroid, psDroidToRepair);
+	if (!needMoreRepair && psDroidToRepair->order.type == DORDER_RTR)
+	{
+		// stop following me!
+		psDroidToRepair->order = DroidOrder(DORDER_NONE);	
+	}
+	return needMoreRepair;
 }
 
 static void droidUpdateDroidSelfRepair(DROID *psRepairDroid)
