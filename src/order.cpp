@@ -1566,7 +1566,9 @@ void orderDroidBase(DROID *psDroid, DROID_ORDER_DATA *psOrder)
 			if (psRepairFac == nullptr && !isTransporter(psDroid))
 			{
 				int bestDistToRepair = 0;
-				for (DROID *psCurr = apsDroidLists[psDroid->player]; psCurr != nullptr; psCurr = psNext)
+				// one of these lists is empty when on mission
+				DROID *psdroidList = apsDroidLists[psDroid->player] != nullptr ? apsDroidLists[psDroid->player] : mission.apsDroidLists[psDroid->player];
+				for (DROID *psCurr = psdroidList; psCurr != nullptr; psCurr = psNext)
 				{
 					psNext = psCurr->psNext;
 					if (psCurr->droidType == DROID_REPAIR || psCurr->droidType == DROID_CYBORG_REPAIR)
@@ -1583,6 +1585,7 @@ void orderDroidBase(DROID *psDroid, DROID_ORDER_DATA *psOrder)
 						}
 					}
 				}
+
 				// we found a repair droid
 				if (pSRepairDroid != nullptr)
 				{
