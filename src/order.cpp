@@ -1561,11 +1561,11 @@ void orderDroidBase(DROID *psDroid, DROID_ORDER_DATA *psOrder)
 					}
 				}
 			}
-			// check maybe we have a repair droid, but only if no repair facility were found
+			// check maybe we have a repair droid nearer
 			// but not if current droid is a transporter tho... it's big and heavy
-			if (psRepairFac == nullptr && !isTransporter(psDroid))
+			if (!isTransporter(psDroid))
 			{
-				int bestDistToRepair = 0;
+				int bestDistToRepairDroid = 0;
 				// one of these lists is empty when on mission
 				DROID *psdroidList = apsDroidLists[psDroid->player] != nullptr ? apsDroidLists[psDroid->player] : mission.apsDroidLists[psDroid->player];
 				for (DROID *psCurr = psdroidList; psCurr != nullptr; psCurr = psNext)
@@ -1578,16 +1578,18 @@ void orderDroidBase(DROID *psDroid, DROID_ORDER_DATA *psOrder)
 						{
 							continue; // unreachable
 						}
-						if (pSRepairDroid == nullptr || bestDistToRepair > thisDistToRepair)
+						if (pSRepairDroid == nullptr || bestDistToRepairDroid > thisDistToRepair)
 						{
-							bestDistToRepair = thisDistToRepair;
+							bestDistToRepairDroid = thisDistToRepair;
 							pSRepairDroid = psCurr;
 						}
 					}
 				}
 
-				// we found a repair droid
-				if (pSRepairDroid != nullptr)
+				// choose droid if no facility
+				if ((psRepairFac == nullptr && pSRepairDroid != nullptr) || 
+					// found both droid and facility, so choose the nearest
+					(psRepairFac != nullptr && pSRepairDroid != nullptr && iRepairFacDistSq > bestDistToRepairDroid))
 				{
 					// move to the droid
 					psDroid->order = DroidOrder(psOrder->type, Vector2i(pSRepairDroid->pos.x,pSRepairDroid->pos.y));
