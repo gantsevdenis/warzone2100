@@ -1188,9 +1188,10 @@ bool droidUpdateDroidRepair(DROID *psRepairDroid)
 	DROID *psDroidToRepair = (DROID *)psRepairDroid->psActionTarget[0];
 	ASSERT_OR_RETURN(false, psDroidToRepair->type == OBJ_DROID, "Target is not a unit");
 	bool needMoreRepair = droidUpdateDroidRepairBase(psRepairDroid, psDroidToRepair);
-	if (!needMoreRepair && psDroidToRepair->order.type == DORDER_RTR)
+	if (psDroidToRepair->order.type == DORDER_RTR)
 	{
 		// stop following me!
+		// cancel RTR order, so that more useful orders can be placed, while droid being repaired
 		psDroidToRepair->order = DroidOrder(DORDER_NONE);	
 	}
 	return needMoreRepair;
