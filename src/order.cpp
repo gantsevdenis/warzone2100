@@ -864,13 +864,9 @@ void orderUpdateDroid(DROID *psDroid)
 			       "orderUpdateUnit: invalid structure pointer");
 
 
-			if (objPosDiffSq(psDroid->pos, psDroid->order.psObj->pos) < (REPAIR_RANGE) * (REPAIR_RANGE))
+			if (objPosDiffSq(psDroid->pos, psDroid->order.psObj->pos) < (TILE_UNITS * 8) * (TILE_UNITS * 8))
 			{
 				/* action droid to wait */
-				if (psDroid->player==0)
-				{
-					debug(LOG_INFO, "was DORDER_RTR/DORDER_RTR_SPECIFIED action %s, now will be DACTION_WAITFORREPAIR %u", getDroidActionName(psDroid->action), psDroid->id);
-				}
 				actionDroid(psDroid, DACTION_WAITFORREPAIR);
 			}
 			else

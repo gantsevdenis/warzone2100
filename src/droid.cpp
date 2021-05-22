@@ -820,17 +820,16 @@ void droidUpdate(DROID *psDroid)
 					}
 					continue;
 				}
-				// really needs help
+			}
+
+			else if (psOther->action == DACTION_WAITFORREPAIR || (psOther->action == DACTION_WAITDURINGREPAIR))
+			{
 				SDWORD xdiff = (SDWORD)psOther->pos.x - (SDWORD)psDroid->pos.x;
 				SDWORD ydiff = (SDWORD)psOther->pos.y - (SDWORD)psDroid->pos.y;
-				SDWORD currdist = xdiff * xdiff + ydiff * ydiff;
-				if (currdist < mindist && currdist < (TILE_UNITS * 8) * (TILE_UNITS * 8))
+				if (xdiff * xdiff + ydiff * ydiff > (TILE_UNITS * 5 / 2) * (TILE_UNITS * 5 / 2))
 				{
-					mindist = currdist;
-					psChosenObj = psDroid;
+					actionDroid(psOther, DACTION_MOVETOREPAIRPOINT, psDroid, psStructure->pos.x, psStructure->pos.y);
 				}
-				
-				// don't help others.. it's already handled in tryDoRepairlikeAction
 				
 			}
 		}
