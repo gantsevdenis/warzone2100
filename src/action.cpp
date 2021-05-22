@@ -527,6 +527,24 @@ static void actionCalcPullBackPoint(BASE_OBJECT *psObj, BASE_OBJECT *psTarget, i
 	clip_world_offmap(px, py);
 }
 
+// check whether a droid is in the neighboring tile of another droid
+/*bool actionReachedDroid(DROID const *psDroid, DROID const *psOther)
+{
+	ASSERT_OR_RETURN(false, psDroid != nullptr && psOther != nullptr, "Bad droids");
+	CHECK_DROID(psDroid);
+	Vector2i xy = map_coord(psDroid->pos.xy());
+	Vector2i otherxy = map_coord(psOther->pos.xy());
+	Vector2i delta = xy - otherxy;
+	return delta.x >=-1 && delta.x <=1 &&  delta.y >=-1 && delta.y <=1 ;
+}*/
+
+bool actionReachedDroid(DROID const *psDroid, DROID const *psOther)
+{
+	ASSERT_OR_RETURN(false, psDroid != nullptr && psOther != nullptr, "Bad droids");
+	CHECK_DROID(psDroid);
+	int dist = objPosDiffSq(psDroid->pos, psOther->pos);
+	return dist < (REPAIR_RANGE * REPAIR_RANGE);
+}
 
 // check whether a droid is in the neighboring tile to a build position
 bool actionReachedBuildPos(DROID const *psDroid, int x, int y, uint16_t dir, BASE_STATS const *psStats)
@@ -728,12 +746,18 @@ void actionUpdateDroid(DROID *psDroid)
 						{
 							psDroid->action = DACTION_ATTACK;
 							setDroidActionTarget(psDroid, psTemp, 0);
+							if (psDroid->player == 0)
+							{
+								debug(LOG_INFO, "attacking while waiting for repairs %u", psDroid->id);
+							}
+							
 						}
 					}
 				}
 			}
 		}
 		break;
+	// this action is only set by a repair facility, not by any repair droid / repair cyborg
 	case DACTION_WAITDURINGREPAIR:
 		// Check that repair facility still exists
 		if (!order->psObj)
@@ -741,13 +765,56 @@ void actionUpdateDroid(DROID *psDroid)
 			psDroid->action = DACTION_NONE;
 			break;
 		}
-		// move back to the repair facility if necessary
-		if (DROID_STOPPED(psDroid) &&
-		    !actionReachedBuildPos(psDroid,
-		                           order->psObj->pos.x, order->psObj->pos.y, ((STRUCTURE *)order->psObj)->rot.direction,
-		                           ((STRUCTURE *)order->psObj)->pStructureType))
+		if (order->type == DORDER_RTR && order->rtrType == RTR_TYPE_REPAIR_FACILITY)
 		{
-			moveDroidToNoFormation(psDroid, order->psObj->pos.x, order->psObj->pos.y);
+			// move back to the repair facility if necessary
+			if (DROID_STOPPED(psDroid) &&
+				!actionReachedBuildPos(psDroid,
+									order->psObj->pos.x, order->psObj->pos.y, ((STRUCTURE *)order->psObj)->rot.direction,
+									((STRUCTURE *)order->psObj)->pStructureType))
+			{
+				moveDroidToNoFormation(psDroid, order->psObj->pos.x, order->psObj->pos.y);
+			}
+		}
+		else if (order->type == DORDER_RTR && order->rtrType == RTR_TYPE_DROID && DROID_STOPPED(psDroid)) {
+			if (!actionReachedDroid(psDroid, static_cast<DROID *> (order->psObj)))
+			{
+				// move closer to MRT
+				debug(LOG_INFO, "move closer to MRT...");
+				moveDroidToNoFormation(psDroid, order->psObj->pos.x, order->psObj->pos.y);
+			} else {
+				moveStopDroid(psDroid);
+			}
+		}
+		// try attacking...
+		// this indeed makes them attack, but until either droid is dead, or the target...
+		if (psDroid->numWeaps > 0 && !isVtolDroid(psDroid)
+		    && (order->type == DORDER_NONE || order->type == DORDER_HOLD || order->type == DORDER_RTR || order->type == DORDER_GUARD))
+		{
+			for (unsigned i = 0; i < psDroid->numWeaps; ++i)
+			{
+				if (nonNullWeapon[i])
+				{
+					BASE_OBJECT *psTemp = nullptr;
+
+					WEAPON_STATS *const psWeapStats = &asWeaponStats[psDroid->asWeaps[i].nStat];
+					if (psDroid->asWeaps[i].nStat > 0
+					    && psWeapStats->rotate
+					    && aiBestNearestTarget(psDroid, &psTemp, i) >= 0)
+					{
+						if (secondaryGetState(psDroid, DSO_ATTACK_LEVEL) == DSS_ALEV_ALWAYS)
+						{
+							psDroid->action = DACTION_ATTACK;
+							setDroidActionTarget(psDroid, psTemp, 0);
+							if (psDroid->player == 0)
+							{
+								debug(LOG_INFO, "attacking while waiting for repairs %u", psDroid->id);
+							}
+							
+						}
+					}
+				}
+			}
 		}
 		break;
 	case DACTION_TRANSPORTWAITTOFLYIN:
@@ -1801,17 +1868,46 @@ void actionUpdateDroid(DROID *psDroid)
 		}
 		break;
 	case DACTION_MOVETOREPAIRPOINT:
-		/* moving from front to rear of repair facility or rearm pad */
-		if (actionReachedBuildPos(psDroid, psDroid->psActionTarget[0]->pos.x, psDroid->psActionTarget[0]->pos.y, ((STRUCTURE *)psDroid->psActionTarget[0])->rot.direction, ((STRUCTURE *)psDroid->psActionTarget[0])->pStructureType))
+		if (psDroid->order.rtrType == RTR_TYPE_REPAIR_FACILITY)
 		{
-			objTrace(psDroid->id, "Arrived at repair point - waiting for our turn");
-			moveStopDroid(psDroid);
-			psDroid->action = DACTION_WAITDURINGREPAIR;
-		}
-		else if (DROID_STOPPED(psDroid))
+			/* moving from front to rear of repair facility or rearm pad */
+			if (actionReachedBuildPos(psDroid, psDroid->psActionTarget[0]->pos.x, psDroid->psActionTarget[0]->pos.y, ((STRUCTURE *)psDroid->psActionTarget[0])->rot.direction, ((STRUCTURE *)psDroid->psActionTarget[0])->pStructureType))
+			{
+				objTrace(psDroid->id, "Arrived at repair point - waiting for our turn");
+				moveStopDroid(psDroid);
+				psDroid->action = DACTION_WAITDURINGREPAIR;
+			}
+			else if (DROID_STOPPED(psDroid))
+			{
+				moveDroidToNoFormation(psDroid, psDroid->psActionTarget[0]->pos.x,
+									psDroid->psActionTarget[0]->pos.y);
+			}
+		} else if (psDroid->order.rtrType == RTR_TYPE_DROID)
 		{
-			moveDroidToNoFormation(psDroid, psDroid->psActionTarget[0]->pos.x,
-			                       psDroid->psActionTarget[0]->pos.y);
+			bool reached = actionReachedDroid(psDroid, static_cast<DROID*>(psDroid->order.psObj));
+			if (reached)
+			{
+				if (psDroid->body >= psDroid->originalBody)
+				{
+					objTrace(psDroid->id, "Repair not needed of droid %d", (int)psDroid->id);
+					/* set droid points to max */
+					psDroid->body = psDroid->originalBody;
+					// if completely repaired then reset order
+					secondarySetState(psDroid, DSO_RETURN_TO_LOC, DSS_NONE);
+					orderDroidObj(psDroid, DORDER_GUARD, psDroid->order.psObj, ModeImmediate);
+				}
+				else 
+				{
+					debug(LOG_INFO, "reached repair droid, DACTION_WAITDURINGREPAIR");
+					moveStopDroid(psDroid);
+					psDroid->action = DACTION_WAITDURINGREPAIR;
+				}
+
+			}
+			else if (DROID_STOPPED(psDroid))
+			{
+				moveDroidToNoFormation(psDroid, psDroid->order.psObj->pos.x, psDroid->order.psObj->pos.y);
+			}
 		}
 		break;
 	case DACTION_OBSERVE:

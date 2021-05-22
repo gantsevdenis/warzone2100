@@ -2932,9 +2932,14 @@ static void aiUpdateStructure(STRUCTURE *psStructure, bool isMission)
 				psDroid = (DROID *)psChosenObj;
 				if (psDroid)
 				{
-					if (psDroid->order.type == DORDER_RTR || psDroid->order.type == DORDER_RTR_SPECIFIED)
+					// only if droid has nothing better to do right now (it maybe actively fighting)
+					if ((psDroid->order.type == DORDER_RTR || psDroid->order.type == DORDER_RTR_SPECIFIED) && psDroid->action == DACTION_NONE)
 					{
 						// Hey, droid, it's your turn! Stop what you're doing and get ready to get repaired!
+						if (psDroid->player==0)
+						{
+							debug(LOG_INFO, "action was %s, now will be DACTION_WAITFORREPAIR droid %u", getDroidActionName(psDroid->action), psDroid->id);
+						}
 						psDroid->action = DACTION_WAITFORREPAIR;
 						psDroid->order.psObj = psStructure;
 					}
@@ -2956,7 +2961,7 @@ static void aiUpdateStructure(STRUCTURE *psStructure, bool isMission)
 				    (psDroid->action == DACTION_WAITDURINGREPAIR
 				     && xdiff * xdiff + ydiff * ydiff > (TILE_UNITS * 5 / 2) * (TILE_UNITS * 5 / 2)))
 				{
-					objTrace(psStructure->id, "Requesting droid %d to come to us", (int)psDroid->id);
+					objTrace(psDroid->id, "Requesting droid %d to come to us (structure %u)", (int)psDroid->id, psStructure->id);
 					actionDroid(psDroid, DACTION_MOVETOREPAIRPOINT,
 					            psStructure, psStructure->pos.x, psStructure->pos.y);
 				}

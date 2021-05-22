@@ -1188,11 +1188,26 @@ bool droidUpdateDroidRepair(DROID *psRepairDroid)
 	DROID *psDroidToRepair = (DROID *)psRepairDroid->psActionTarget[0];
 	ASSERT_OR_RETURN(false, psDroidToRepair->type == OBJ_DROID, "Target is not a unit");
 	bool needMoreRepair = droidUpdateDroidRepairBase(psRepairDroid, psDroidToRepair);
-	if (psDroidToRepair->order.type == DORDER_RTR)
+	if (needMoreRepair && psDroidToRepair->order.type == DORDER_RTR && psDroidToRepair->order.rtrType == RTR_TYPE_DROID)
 	{
-		// stop following me!
-		// cancel RTR order, so that more useful orders can be placed, while droid being repaired
-		psDroidToRepair->order = DroidOrder(DORDER_NONE);	
+		//orderDroidObj(psDroidToRepair, DORDER_GUARD, psRepairDroid, ModeImmediate);
+		//while being repaired, hold position and fire at enemy
+		//secondarySetState(psDroidToRepair, DSO_HALTTYPE, DSS_HALT_HOLD);
+		if (psDroidToRepair->action == DACTION_NONE)
+		{
+			psDroidToRepair->action = DACTION_WAITDURINGREPAIR;
+			//setDroidActionTarget(psDroidToRepair, psRepairDroid, 0);
+			//psDroidToRepair->order.psObj = psRepairDroid;
+		}
+	}
+	if (!needMoreRepair && psDroidToRepair->order.type == DORDER_RTR && psDroidToRepair->order.rtrType == RTR_TYPE_DROID)
+	{
+		// if psDroidToRepair has a commander, commander will call him back anyway
+		// if no commanders, just DORDER_GUARD the repair turret
+		secondarySetState(psDroidToRepair, DSO_HALTTYPE, DSS_HALT_GUARD);
+		orderDroidObj(psDroidToRepair, DORDER_GUARD, psRepairDroid, ModeImmediate);
+		setDroidActionTarget(psDroidToRepair, psRepairDroid, 0);
+		psDroidToRepair->order.psObj = nullptr;
 	}
 	return needMoreRepair;
 }

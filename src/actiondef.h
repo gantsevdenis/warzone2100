@@ -62,7 +62,7 @@ enum DROID_ACTION
 	DACTION_WAITFORREPAIR,				///< 26 waiting to be repaired by a facility
 	DACTION_MOVETOREPAIRPOINT,			///< 27 move to repair facility repair point
 	DACTION_WAITDURINGREPAIR,			///< 28 waiting to be repaired by a facility
-	DACTION_MOVETODROIDREPAIR,			///< 29 moving to a new location next to droid to be repaired
+	DACTION_MOVETODROIDREPAIR,			///< 29 moving to a new location next to droid which needs to be repaired
 	DACTION_MOVETORESTORE,				///< 30 moving to a low resistance structure
 	DACTION_UNUSED2,
 	DACTION_MOVETOREARM,				///< 32 moving to a rearming pad - VTOLS
