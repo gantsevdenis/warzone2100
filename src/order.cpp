@@ -877,7 +877,7 @@ void orderUpdateDroid(DROID *psDroid)
 			{
 				debug(LOG_INFO, "droid was too far, setting action to move");
 				// move the droid closer to the repair facility
-				actionDroid(psDroid, DACTION_MOVETOREPAIRPOINT, psDroid->order.psObj->pos.x, psDroid->order.psObj->pos.y);
+				actionDroid(psDroid, DACTION_MOVE, psDroid->order.psObj->pos.x, psDroid->order.psObj->pos.y);
 				
 			}
 		}
@@ -889,14 +889,14 @@ void orderUpdateDroid(DROID *psDroid)
 			// see if there is a repair facility nearer than the one currently selected
 			orderDroid(psDroid, DORDER_RTR, ModeImmediate);
 		}
-		if (psDroid->order.type == DORDER_RTR && psDroid->order.rtrType == RTR_TYPE_DROID)
+		/*if (psDroid->order.type == DORDER_RTR && psDroid->order.rtrType == RTR_TYPE_DROID)
 		{
 			if (actionReachedDroid(psDroid, static_cast<DROID*> (psDroid->order.psObj)) && psDroid->action == DACTION_MOVETOREPAIRPOINT)
 			{
 				moveStopDroid(psDroid);
 				ASSERT(psDroid->order.psObj, "Unexpected null");
 			}
-		}
+		}*/
 		break;
 	case DORDER_LINEBUILD:
 		if (psDroid->action == DACTION_NONE ||

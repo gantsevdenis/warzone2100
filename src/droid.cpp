@@ -763,14 +763,86 @@ void droidUpdate(DROID *psDroid)
 			psBeingTargetted->flags.set(OBJECT_FLAG_TARGETED, true);
 		}
 	}
-	// -----------------
+	// ------------------------
+	// if we are a repair turret, then manage incoming damaged droids, (just like repair facility)
+	// unlike a repair facility
+	// 	- we don't really need to move droids to us, we can come ourselves
+	//	- we don't steal work from other repair turrets/ repair facilities
+	// we do however need to manage damaged droids actions so that they can enter DACTION_WAITFORREPAIR and DACTION_MOVETOREPAIRPOINT states
+	// note that we still need DACTION_MOVETOREPAIRPOINT so that action.cpp can upgrade it to DACTION_WAITDURINGREPAIR, that's the only way
+	DROID *psOther;
+	if (psDroid->player == selectedPlayer && (psDroid->type == DROID_REPAIR || psDroid->type == DROID_CYBORG_REPAIR))
+	{
+		DROID *psChosenDroid;
+		psChosenDroid = psDroid->order.psObj;
+		// If the droid we're repairing just died, find a new one
+		if (psChosenDroid && psChosenDroid->died)
+		{
+			syncDebugDroid(psChosenDroid, '-');
+			psChosenDroid = nullptr;
+			psDroid->order.psObj = nullptr;
+		}
+		// skip droids that are trying to get to other repair droids
+		/*if (psChosenDroid != nullptr && (!orderState(psChosenDroid, DORDER_RTR) || psOther->order.psObj != psDroid))
+		{
+			xdiff = (SDWORD)psDroid->pos.x - (SDWORD)psStructure->pos.x;
+			ydiff = (SDWORD)psDroid->pos.y - (SDWORD)psStructure->pos.y;
+			// unless it has orders to repair here, forget about it when it gets out of range
+			if (xdiff * xdiff + ydiff * ydiff > (TILE_UNITS * 5 / 2) * (TILE_UNITS * 5 / 2))
+			{
+				psChosenDroid = nullptr;
+				psDroid->order.psObj = nullptr;
+			}
+		}*/
+		for (psOther = apsDroidLists[psStructure->player]; psOther; psOther = psOther->psNext)
+		{
+			BASE_OBJECT *const psTarget = orderStateObj(psOther, DORDER_RTR);
+			// unlike repair facility, no droid  can have DORDER_RTR_SPECIFIED with another droid as target, so skip that check
+			if (psOther->order.type == DORDER_RTR && 
+					psOther->action != DACTION_WAITFORREPAIR &&
+					psOther->action != DACTION_MOVETOREPAIRPOINT &&
+					psOther->action != DACTION_WAITDURINGREPAIR)
+			{
+				if (psOther->body >= psOther->originalBody)
+				{
+					// repairs not needed, already full
+					debug(LOG_INFO, "repairs not need for droid %u", psOther->id);
+					/* set droid points to max */
+					psOther->body = psOther->originalBody;
+					// if completely repaired reset order
+					secondarySetState(psOther, DSO_RETURN_TO_LOC, DSS_NONE);
 
+					if (hasCommander(psOther))
+					{
+						// return a droid to it's command group
+						DROID	*psCommander = psOther->psGroup->psCommander;
+						orderDroidObj(psOther, DORDER_GUARD, psCommander, ModeImmediate);
+					}
+					continue;
+				}
+				// really needs help
+				SDWORD xdiff = (SDWORD)psOther->pos.x - (SDWORD)psDroid->pos.x;
+				SDWORD ydiff = (SDWORD)psOther->pos.y - (SDWORD)psDroid->pos.y;
+				SDWORD currdist = xdiff * xdiff + ydiff * ydiff;
+				if (currdist < mindist && currdist < (TILE_UNITS * 8) * (TILE_UNITS * 8))
+				{
+					mindist = currdist;
+					psChosenObj = psDroid;
+				}
+				
+				// don't help others.. it's already handled in tryDoRepairlikeAction
+				
+			}
+		}
+	}
+	// ------------------------
 	// See if we can and need to self repair.
 	if (!isVtolDroid(psDroid) && psDroid->body < psDroid->originalBody && psDroid->asBits[COMP_REPAIRUNIT] != 0 && selfRepairEnabled(psDroid->player))
 	{
 		droidUpdateDroidSelfRepair(psDroid);
 	}
 
+	
 	/* Update the fire damage data */
 	if (psDroid->periodicalDamageStart != 0 && psDroid->periodicalDamageStart != gameTime - deltaGameTime)  // -deltaGameTime, since projectiles are updated after droids.
 	{
