@@ -1559,6 +1559,7 @@ void orderDroidBase(DROID *psDroid, DROID_ORDER_DATA *psOrder)
 				objTrace(psDroid->id, "DONE FOR NOW");
 				break;
 			}
+			ASSERT(psOrder->psObj == nullptr, "Bad state psobj");
 			RtrBestResult rtrData = psOrder->rtrType == RTR_TYPE_NO_RESULT ? decideWhereToRepairAndBalance(psDroid): RtrBestResult(psOrder);
 
 			/* give repair order if repair facility found */
@@ -1567,6 +1568,7 @@ void orderDroidBase(DROID *psDroid, DROID_ORDER_DATA *psOrder)
 				/* move to front of structure */
 				psDroid->order = DroidOrder(psOrder->type, rtrData.psObj, RTR_TYPE_REPAIR_FACILITY);
 				psDroid->order.pos = rtrData.psObj->pos.xy();
+				psDroid->order.psObj = rtrData.psObj;
 				/* If in multiPlayer, and the Transporter has been sent to be
 					* repaired, need to find a suitable location to drop down. */
 				if (game.type == LEVEL_TYPE::SKIRMISH && isTransporter(psDroid))
@@ -3184,7 +3186,7 @@ static inline RtrBestResult decideWhereToRepairAndBalance(DROID *psDroid)
 			vFacilityCloseEnough.push_back(i);
 		} else 
 		{
-			debug(LOG_INFO, "rejecting facility at diistance %u (best %u, magic %u)", vFacilityDist[i], bestDistToRepair, MAGIC_SUITABLE_REPAIR_AREA);
+			//debug(LOG_INFO, "rejecting facility at diistance %u (best %u, magic %u)", vFacilityDist[i], bestDistToRepair, MAGIC_SUITABLE_REPAIR_AREA);
 		}
 	}
 
@@ -3196,7 +3198,7 @@ static inline RtrBestResult decideWhereToRepairAndBalance(DROID *psDroid)
 		}
 	}
 
-	debug(LOG_INFO, "found  %lu RT, and %lu RF in suitable area", vDroidCloseEnough.size(), vFacilityCloseEnough.size());
+	//debug(LOG_INFO, "found  %lu RT, and %lu RF in suitable area", vDroidCloseEnough.size(), vFacilityCloseEnough.size());
 	// always prefer facilities, they re much more efficient than droids
 	if (vFacilityCloseEnough.size() == 1)
 	{
@@ -3216,7 +3218,7 @@ static inline RtrBestResult decideWhereToRepairAndBalance(DROID *psDroid)
 	} else if (vDroidCloseEnough.size() > 1)
 	{
 		int32_t which = gameRand(vDroidCloseEnough.size());
-		debug(LOG_INFO, "going to repair droid %u", which);
+		//debug(LOG_INFO, "going to repair droid %u", which);
 		return RtrBestResult(RTR_TYPE_DROID, vDroid[vDroidCloseEnough[which]]);
 	}
 

@@ -2933,7 +2933,7 @@ static void aiUpdateStructure(STRUCTURE *psStructure, bool isMission)
 				if (psDroid)
 				{
 					// only if droid has nothing better to do right now (it maybe actively fighting)
-					if ((psDroid->order.type == DORDER_RTR || psDroid->order.type == DORDER_RTR_SPECIFIED) && psDroid->action == DACTION_NONE)
+					if (psDroid->order.type == DORDER_RTR || psDroid->order.type == DORDER_RTR_SPECIFIED)
 					{
 						// Hey, droid, it's your turn! Stop what you're doing and get ready to get repaired!
 						if (psDroid->player==0)

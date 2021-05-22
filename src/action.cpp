@@ -1898,7 +1898,7 @@ void actionUpdateDroid(DROID *psDroid)
 				}
 				else 
 				{
-					debug(LOG_INFO, "reached repair droid, DACTION_WAITDURINGREPAIR");
+					//debug(LOG_INFO, "reached repair droid, DACTION_WAITDURINGREPAIR");
 					moveStopDroid(psDroid);
 					psDroid->action = DACTION_WAITDURINGREPAIR;
 				}

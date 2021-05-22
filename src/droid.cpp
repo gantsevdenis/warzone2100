@@ -771,9 +771,9 @@ void droidUpdate(DROID *psDroid)
 	// we do however need to manage damaged droids actions so that they can enter DACTION_WAITFORREPAIR and DACTION_MOVETOREPAIRPOINT states
 	// note that we still need DACTION_MOVETOREPAIRPOINT so that action.cpp can upgrade it to DACTION_WAITDURINGREPAIR, that's the only way
 	DROID *psOther;
-	if (psDroid->player == selectedPlayer && (psDroid->type == DROID_REPAIR || psDroid->type == DROID_CYBORG_REPAIR))
+	if (psDroid->player == selectedPlayer && (psDroid->droidType == DROID_REPAIR || psDroid->droidType == DROID_CYBORG_REPAIR))
 	{
-		DROID *psChosenDroid;
+		/*DROID *psChosenDroid;
 		psChosenDroid = psDroid->order.psObj;
 		// If the droid we're repairing just died, find a new one
 		if (psChosenDroid && psChosenDroid->died)
@@ -781,7 +781,7 @@ void droidUpdate(DROID *psDroid)
 			syncDebugDroid(psChosenDroid, '-');
 			psChosenDroid = nullptr;
 			psDroid->order.psObj = nullptr;
-		}
+		}*/
 		// skip droids that are trying to get to other repair droids
 		/*if (psChosenDroid != nullptr && (!orderState(psChosenDroid, DORDER_RTR) || psOther->order.psObj != psDroid))
 		{
@@ -794,11 +794,12 @@ void droidUpdate(DROID *psDroid)
 				psDroid->order.psObj = nullptr;
 			}
 		}*/
-		for (psOther = apsDroidLists[psStructure->player]; psOther; psOther = psOther->psNext)
+		for (psOther = apsDroidLists[psDroid->player]; psOther; psOther = psOther->psNext)
 		{
-			BASE_OBJECT *const psTarget = orderStateObj(psOther, DORDER_RTR);
+			//BASE_OBJECT *const psTarget = orderStateObj(psOther, DORDER_RTR);
 			// unlike repair facility, no droid  can have DORDER_RTR_SPECIFIED with another droid as target, so skip that check
 			if (psOther->order.type == DORDER_RTR && 
+					psOther->order.rtrType == RTR_TYPE_DROID &&
 					psOther->action != DACTION_WAITFORREPAIR &&
 					psOther->action != DACTION_MOVETOREPAIRPOINT &&
 					psOther->action != DACTION_WAITDURINGREPAIR)
@@ -822,13 +823,13 @@ void droidUpdate(DROID *psDroid)
 				}
 			}
 
-			else if (psOther->action == DACTION_WAITFORREPAIR || (psOther->action == DACTION_WAITDURINGREPAIR))
+			else if (psOther->order.rtrType == RTR_TYPE_DROID && (psOther->action == DACTION_WAITFORREPAIR || psOther->action == DACTION_WAITDURINGREPAIR))
 			{
 				SDWORD xdiff = (SDWORD)psOther->pos.x - (SDWORD)psDroid->pos.x;
 				SDWORD ydiff = (SDWORD)psOther->pos.y - (SDWORD)psDroid->pos.y;
 				if (xdiff * xdiff + ydiff * ydiff > (TILE_UNITS * 5 / 2) * (TILE_UNITS * 5 / 2))
 				{
-					actionDroid(psOther, DACTION_MOVETOREPAIRPOINT, psDroid, psStructure->pos.x, psStructure->pos.y);
+					actionDroid(psOther, DACTION_MOVETOREPAIRPOINT, psDroid, psDroid->pos.x, psDroid->pos.y);
 				}
 				
 			}
