@@ -786,36 +786,6 @@ void actionUpdateDroid(DROID *psDroid)
 				moveStopDroid(psDroid);
 			}
 		}
-		// try attacking...
-		// this indeed makes them attack, but until either droid is dead, or the target...
-		if (psDroid->numWeaps > 0 && !isVtolDroid(psDroid)
-		    && (order->type == DORDER_NONE || order->type == DORDER_HOLD || order->type == DORDER_RTR || order->type == DORDER_GUARD))
-		{
-			for (unsigned i = 0; i < psDroid->numWeaps; ++i)
-			{
-				if (nonNullWeapon[i])
-				{
-					BASE_OBJECT *psTemp = nullptr;
-
-					WEAPON_STATS *const psWeapStats = &asWeaponStats[psDroid->asWeaps[i].nStat];
-					if (psDroid->asWeaps[i].nStat > 0
-					    && psWeapStats->rotate
-					    && aiBestNearestTarget(psDroid, &psTemp, i) >= 0)
-					{
-						if (secondaryGetState(psDroid, DSO_ATTACK_LEVEL) == DSS_ALEV_ALWAYS)
-						{
-							psDroid->action = DACTION_ATTACK;
-							setDroidActionTarget(psDroid, psTemp, 0);
-							if (psDroid->player == 0)
-							{
-								debug(LOG_INFO, "attacking while waiting for repairs %u", psDroid->id);
-							}
-							
-						}
-					}
-				}
-			}
-		}
 		break;
 	case DACTION_TRANSPORTWAITTOFLYIN:
 		//if we're moving droids to safety and currently waiting to fly back in, see if time is up
