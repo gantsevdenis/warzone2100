@@ -1551,7 +1551,18 @@ void orderDroidBase(DROID *psDroid, DROID_ORDER_DATA *psOrder)
 				moveToRearm(psDroid);
 				break;
 			}
-			if (psOrder->rtrType != RTR_TYPE_NO_RESULT && psDroid->order.type != DORDER_RTR_SPECIFIED)
+			RtrBestResult rtrData;
+			if (psOrder->rtrType == RTR_TYPE_NO_RESULT || psOrder->psObj == nullptr)
+			{
+				rtrData = decideWhereToRepairAndBalance(psDroid);
+			}
+			else
+			{
+				rtrData = RtrBestResult(psOrder);
+			}
+			
+			//if (psOrder->rtrType != RTR_TYPE_NO_RESULT && psDroid->order.type != DORDER_RTR_SPECIFIED)
+			if (psDroid->order.type == DORDER_RTR && rtrData.psObj == psDroid->order.psObj)
 			{
 				// droids doing a DORDER_RTR periodically give themselves a DORDER_RTR so that
 				// they always go to the nearest repair facility
@@ -1559,8 +1570,6 @@ void orderDroidBase(DROID *psDroid, DROID_ORDER_DATA *psOrder)
 				objTrace(psDroid->id, "DONE FOR NOW");
 				break;
 			}
-			ASSERT(psOrder->psObj == nullptr, "Bad state psobj");
-			RtrBestResult rtrData = psOrder->rtrType == RTR_TYPE_NO_RESULT ? decideWhereToRepairAndBalance(psDroid): RtrBestResult(psOrder);
 
 			/* give repair order if repair facility found */
 			if (rtrData.type == RTR_TYPE_REPAIR_FACILITY)
@@ -1568,7 +1577,6 @@ void orderDroidBase(DROID *psDroid, DROID_ORDER_DATA *psOrder)
 				/* move to front of structure */
 				psDroid->order = DroidOrder(psOrder->type, rtrData.psObj, RTR_TYPE_REPAIR_FACILITY);
 				psDroid->order.pos = rtrData.psObj->pos.xy();
-				psDroid->order.psObj = rtrData.psObj;
 				/* If in multiPlayer, and the Transporter has been sent to be
 					* repaired, need to find a suitable location to drop down. */
 				if (game.type == LEVEL_TYPE::SKIRMISH && isTransporter(psDroid))
