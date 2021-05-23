@@ -856,7 +856,7 @@ void orderUpdateDroid(DROID *psDroid)
 			psDroid->order = DroidOrder(DORDER_NONE);
 			orderDroid(psDroid, DORDER_RTR, ModeImmediate);
 		}
-		else if (psDroid->action == DACTION_NONE || psDroid->action == DACTION_WAITFORREPAIR)
+		else if (psDroid->action == DACTION_NONE)
 		{
 			/* get repair facility pointer */
 			psStruct = (STRUCTURE *)psDroid->order.psObj;
