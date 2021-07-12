@@ -71,6 +71,7 @@
 #include "combat.h"
 #include "template.h"
 #include "qtscript.h"
+#include "statsd.hpp"
 
 #define DEFAULT_RECOIL_TIME	(GAME_TICKS_PER_SEC/4)
 #define	DROID_DAMAGE_SPREAD	(16 - rand()%32)
@@ -568,6 +569,7 @@ bool destroyDroid(DROID *psDel, unsigned impactTime)
 	removeDroidFX(psDel, impactTime);
 	removeDroidBase(psDel);
 	psDel->died = impactTime;
+	statsd::decrement("wz-nbdroids");
 	return true;
 }
 
@@ -1597,6 +1599,7 @@ DROID *reallyBuildDroid(const DROID_TEMPLATE *pTemplate, Position pos, UDWORD pl
 
 	debug(LOG_LIFE, "created droid for player %d, droid = %p, id=%d (%s): position: x(%d)y(%d)z(%d)", player, static_cast<void *>(psDroid), (int)psDroid->id, psDroid->aName, psDroid->pos.x, psDroid->pos.y, psDroid->pos.z);
 
+	statsd::increment("wz-nbdroids");
 	return psDroid;
 }
 

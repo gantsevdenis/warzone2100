@@ -84,9 +84,9 @@
 #include "notifications.h"
 #include "scores.h"
 #include "clparse.h"
-
+#include "perf.h"
 #include "warzoneconfig.h"
-
+#include "statsd.hpp"
 #ifdef DEBUG
 #include "objmem.h"
 #endif
@@ -122,7 +122,7 @@ static unsigned numMissionDroids[MAX_PLAYERS];
 static unsigned numTransporterDroids[MAX_PLAYERS];
 static unsigned numCommandDroids[MAX_PLAYERS];
 static unsigned numConstructorDroids[MAX_PLAYERS];
-
+static void inline droidUpdate_timed();
 static SDWORD videoMode = 0;
 
 LOOP_MISSION_STATE		loopMissionState = LMS_NORMAL;
@@ -544,20 +544,22 @@ static void gameStateUpdate()
 
 	// update the command droids
 	cmdDroidUpdate();
+	timespec _perf_time1, _perf_time2;
+	PERF_START;
+	droidUpdate_timed();
+	PERF_END;
+	statsd::timing("wz-droidUpdate", PERF_DIFF);
 
-	for (unsigned i = 0; i < MAX_PLAYERS; i++)
+	#define FOR_EACH_PLAYER for (unsigned i = 0; i < MAX_PLAYERS; i++)
+	FOR_EACH_PLAYER
 	{
 		//update the current power available for a player
 		updatePlayerPower(i);
+	}
 
-		DROID *psNext;
-		for (DROID *psCurr = apsDroidLists[i]; psCurr != nullptr; psCurr = psNext)
-		{
-			// Copy the next pointer - not 100% sure if the droid could get destroyed but this covers us anyway
-			psNext = psCurr->psNext;
-			droidUpdate(psCurr);
-		}
-
+	DROID *psNext;
+	FOR_EACH_PLAYER
+	{
 		for (DROID *psCurr = mission.apsDroidLists[i]; psCurr != nullptr; psCurr = psNext)
 		{
 			/* Copy the next pointer - not 100% sure if the droid could
@@ -565,15 +567,23 @@ static void gameStateUpdate()
 			psNext = psCurr->psNext;
 			missionDroidUpdate(psCurr);
 		}
-
+	}
+	PERF_START;
+	STRUCTURE *psNBuilding;
+	FOR_EACH_PLAYER
+	{
 		// FIXME: These for-loops are code duplicationo
-		STRUCTURE *psNBuilding;
 		for (STRUCTURE *psCBuilding = apsStructLists[i]; psCBuilding != nullptr; psCBuilding = psNBuilding)
 		{
 			/* Copy the next pointer - not 100% sure if the structure could get destroyed but this covers us anyway */
 			psNBuilding = psCBuilding->psNext;
 			structureUpdate(psCBuilding, false);
 		}
+	}
+	PERF_END;
+	statsd::timing("wz-structUpdate", PERF_DIFF);
+	FOR_EACH_PLAYER
+	{
 		for (STRUCTURE *psCBuilding = mission.apsStructLists[i]; psCBuilding != nullptr; psCBuilding = psNBuilding)
 		{
 			/* Copy the next pointer - not 100% sure if the structure could get destroyed but this covers us anyway. It shouldn't do since its not even on the map!*/
@@ -594,13 +604,29 @@ static void gameStateUpdate()
 	}
 
 	// Free dead droid memory.
+	PERF_START;
 	objmemUpdate();
-
+	PERF_END;
+	statsd::timing("wz-objmemupdate", PERF_DIFF);
 	// Must end update, since we may or may not have ticked, and some message queue processing code may vary depending on whether it's in an update.
 	gameTimeUpdateEnd();
 
 	// Must be at the end of gameStateUpdate, since countUpdate is also called randomly (unsynchronised) between gameStateUpdate calls, but should have no effect if we already called it, and recvMessage requires consistent counts on all clients.
 	countUpdate(true);
+}
+
+static void inline droidUpdate_timed()
+{
+	for (unsigned i = 0; i < MAX_PLAYERS; i++)
+	{
+		DROID *psNext;
+		for (DROID *psCurr = apsDroidLists[i]; psCurr != nullptr; psCurr = psNext)
+		{
+			// Copy the next pointer - not 100% sure if the droid could get destroyed but this covers us anyway
+			psNext = psCurr->psNext;
+			droidUpdate(psCurr);
+		}
+	}
 }
 
 /* The main game loop */

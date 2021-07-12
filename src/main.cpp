@@ -105,6 +105,7 @@
 #include <sodium.h>
 #include "updatemanager.h"
 #include "activity.h"
+#include "statsd.hpp"
 #if defined(ENABLE_DISCORD)
 #include "integrations/wzdiscordrpc.h"
 #endif
@@ -1476,7 +1477,7 @@ int realmain(int argc, char *argv[])
 	/*** Initialize translations ***/
 	/*** NOTE: Should occur before any use of gettext / libintl translation routines. ***/
 	initI18n();
-
+	statsd::open("127.0.0.1", 8125); 
 	wzMain(argc, argv);		// init Qt integration first
 
 	LaunchInfo::initialize(argc, argv);
