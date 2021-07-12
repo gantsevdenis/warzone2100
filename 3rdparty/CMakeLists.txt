@@ -60,3 +60,5 @@ target_include_directories(glad PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/glad/include
 
 add_subdirectory(quickjs EXCLUDE_FROM_ALL)
 set_property(TARGET quickjs PROPERTY FOLDER "3rdparty")
+
+add_subdirectory(statsd-cpp)

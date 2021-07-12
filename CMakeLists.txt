@@ -636,7 +636,7 @@ include_directories(".")
 include_directories("3rdparty")
 include_directories(SYSTEM "3rdparty/glm")
 include_directories("3rdparty/date/include")
-
+include_directories("3rdparty/statsd-cpp/include")
 SET(STDC_HEADERS ON)
 
 SET(PACKAGE "warzone2100${WZ_OUTPUT_NAME_SUFFIX}")
