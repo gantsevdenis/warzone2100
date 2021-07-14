@@ -159,6 +159,9 @@ bool droidRemove(DROID *psDroid, DROID *pList[MAX_PLAYERS]);
 //free the storage for the droid templates
 bool droidTemplateShutDown();
 
+// given a droid, find its template
+DROID_TEMPLATE *droidFindTemplate(DROID *psDroid);
+
 /* Return the type of a droid */
 DROID_TYPE droidType(DROID *psDroid);
 

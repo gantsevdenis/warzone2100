@@ -3324,3 +3324,49 @@ int droidSqDist(DROID *psDroid, BASE_OBJECT *psObj)
 	}
 	return objPosDiffSq(psDroid->pos, psObj->pos);
 }
+
+DROID_TEMPLATE *droidFindTemplate(DROID *psDroid)
+{
+	const uint8_t droidPropIdx = psDroid->asBits[COMP_PROPULSION];
+	const uint8_t droidBodyIdx = psDroid->asBits[COMP_BODY];
+	const int player = psDroid->player;
+	uint32_t droidWeapIdx [MAX_WEAPONS];
+	for (int i=0; i < MAX_WEAPONS; ++i)
+	{
+		droidWeapIdx[i] = psDroid->asWeaps[i].nStat;
+	}
+	const WEAPON droidWeaps[MAX_WEAPONS] = psDroid->asWeaps;
+	for (auto &keyvaluepair : droidTemplates[player])
+	{
+		auto psTemplate = keyvaluepair.second.get();
+		const BODY_STATS* templBody = asBodyStats + psTemplate->asParts[COMP_BODY];
+		if (templBody->id.compare(droidBody->id) != 0)
+		{
+			continue;
+		}
+		const PROPULSION_STATS* templProp = asBodyStats + psTemplate->asParts[COMP_PROPULSION];
+		if (templProp->id.compare(droidProp->id) != 0)
+		{
+			continue;
+		}
+		for (int i = 0; i < MAX_WEAPONS; ++i)
+		{
+			if (psTemplate->asWeaps[i] != droidWeapIdx[i])
+			{
+				continue;
+			}
+		}
+		return psTemplate;
+	}
+
+	/*const WEAPON_STATS* weap0 = asWeaponStats + psDroid->asWeaps[0].nStat;
+	const WEAPON_STATS* weap1 = asWeaponStats + psDroid->asWeaps[0].nStat;
+	const WEAPON_STATS* weap2 = asWeaponStats + psDroid->asWeaps[0].nStat;*/
+	/*auto f = [droidPropIdx, droidBodyIdx, droidWeapIdx](DROID_TEMPLATE* psTemplate)
+	{
+
+
+	}*/
+	//DROID_TEMPLATE *psFoundTemplate = enumerateTemplates(psDroid->player, f)
+
+};
