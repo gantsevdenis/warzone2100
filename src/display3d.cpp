@@ -1500,39 +1500,36 @@ static void	calcFlagPosScreenCoords(SDWORD *pX, SDWORD *pY, SDWORD *pR, const gl
 /// Decide whether to render a projectile, and make sure it will be drawn
 static void display3DProjectiles(const glm::mat4 &viewMatrix)
 {
-	PROJECTILE *psObj = proj_GetFirst();
-	while (psObj != nullptr)
+	for (auto &psObj : psProjectileList)
 	{
 		// If source or destination is visible, and projectile has been spawned and has not impacted.
-		if (graphicsTime >= psObj->prevSpacetime.time && graphicsTime <= psObj->time && gfxVisible(psObj))
+		if (graphicsTime >= psObj.prevSpacetime.time && graphicsTime <= psObj.time && gfxVisible(&psObj))
 		{
 			/* Draw a bullet at psObj->pos.x for X coord
 			   psObj->pos.y for Z coord
 			   whatever for Y (height) coord - arcing ?
 			*/
 			/* these guys get drawn last */
-			if (psObj->psWStats->weaponSubClass == WSC_ROCKET ||
-			    psObj->psWStats->weaponSubClass == WSC_MISSILE ||
-			    psObj->psWStats->weaponSubClass == WSC_COMMAND ||
-			    psObj->psWStats->weaponSubClass == WSC_SLOWMISSILE ||
-			    psObj->psWStats->weaponSubClass == WSC_SLOWROCKET ||
-			    psObj->psWStats->weaponSubClass == WSC_ENERGY ||
-			    psObj->psWStats->weaponSubClass == WSC_EMP)
+			if (psObj.psWStats->weaponSubClass == WSC_ROCKET ||
+			    psObj.psWStats->weaponSubClass == WSC_MISSILE ||
+			    psObj.psWStats->weaponSubClass == WSC_COMMAND ||
+			    psObj.psWStats->weaponSubClass == WSC_SLOWMISSILE ||
+			    psObj.psWStats->weaponSubClass == WSC_SLOWROCKET ||
+			    psObj.psWStats->weaponSubClass == WSC_ENERGY ||
+			    psObj.psWStats->weaponSubClass == WSC_EMP)
 			{
-				bucketAddTypeToList(RENDER_PROJECTILE, psObj, viewMatrix);
+				bucketAddTypeToList(RENDER_PROJECTILE, &psObj, viewMatrix);
 			}
 			else
 			{
-				renderProjectile(psObj, viewMatrix);
+				renderProjectile(&psObj, viewMatrix);
 			}
 		}
-
-		psObj = proj_GetNext();
 	}
 }	/* end of function display3DProjectiles */
 
 /// Draw a projectile to the screen
-void	renderProjectile(PROJECTILE *psCurr, const glm::mat4 &viewMatrix)
+void	renderProjectile(const PROJECTILE *psCurr, const glm::mat4 &viewMatrix)
 {
 	WEAPON_STATS	*psStats;
 	Vector3i			dv;

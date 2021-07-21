@@ -80,7 +80,7 @@ void draw3DScene();
 void renderStructure(STRUCTURE *psStructure, const glm::mat4 &viewMatrix);
 void renderFeature(FEATURE *psFeature, const glm::mat4 &viewMatrix);
 void renderProximityMsg(PROXIMITY_DISPLAY	*psProxDisp, const glm::mat4 &viewMatrix);
-void renderProjectile(PROJECTILE *psCurr, const glm::mat4 &viewMatrix);
+void renderProjectile(const PROJECTILE *psCurr, const glm::mat4 &viewMatrix);
 void renderDeliveryPoint(FLAG_POSITION *psPosition, bool blueprint, const glm::mat4 &viewMatrix);
 
 void calcScreenCoords(DROID *psDroid, const glm::mat4 &viewMatrix);

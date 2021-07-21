@@ -46,7 +46,7 @@ extern	BASE_OBJECT	*g_pProjLastAttacker;	///< The last unit that did damage - us
 
 /** How long to display a single electronic warfare shimmmer. */
 #define ELEC_DAMAGE_DURATION    (GAME_TICKS_PER_SEC/5)
-
+extern std::vector<PROJECTILE> psProjectileList;
 bool	proj_InitSystem();	///< Initialize projectiles subsystem.
 void	proj_UpdateAll();	///< Frame update for projectiles.
 bool	proj_Shutdown();	///< Shut down projectile subsystem.
@@ -82,7 +82,7 @@ int proj_GetMinRange(const WEAPON_STATS *psStats, int player);
 int proj_GetShortRange(const WEAPON_STATS *psStats, int player);
 
 UDWORD calcDamage(UDWORD baseDamage, WEAPON_EFFECT weaponEffect, BASE_OBJECT *psTarget);
-bool gfxVisible(PROJECTILE *psObj);
+bool gfxVisible(const PROJECTILE *psObj);
 
 /***************************************************************************/
 
