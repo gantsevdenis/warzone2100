@@ -5780,6 +5780,7 @@ void hqReward(UBYTE losingPlayer, UBYTE rewardPlayer)
 			if (psFeat->visible[losingPlayer])
 			{
 				psFeat->visible[rewardPlayer] = psFeat->visible[losingPlayer];
+				debug(LOG_INFO, "setting %p player %i id %i to %i", (void*) psFeat, psFeat->player,  psFeat->id, psFeat->visible[losingPlayer]);
 			}
 		}
 

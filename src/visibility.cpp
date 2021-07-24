@@ -746,6 +746,11 @@ static void processVisibilityVision(BASE_OBJECT *psViewer)
 static void processVisibilityLevel(BASE_OBJECT *psObj, bool& addedMessage)
 {
 	// update the visibility levels
+	if (psObj->type == OBJ_FEATURE && ((FEATURE *)psObj)->psStats->subType == FEAT_OIL_RESOURCE)
+	{
+		// visible\[.+\] = 
+		debug(LOG_INFO, "debug");	
+	}
 	for (unsigned player = 0; player < MAX_PLAYERS; player++)
 	{
 		bool justBecameVisible = false;
@@ -755,6 +760,7 @@ static void processVisibilityLevel(BASE_OBJECT *psObj, bool& addedMessage)
 		{
 			// owner can always see it fully
 			psObj->visible[player] = UBYTE_MAX;
+			debug(LOG_INFO, "setting %p player %i id %i to UBTYE_MAX", (void*) psObj, player,  psObj->id);
 			continue;
 		}
 
@@ -767,12 +773,15 @@ static void processVisibilityLevel(BASE_OBJECT *psObj, bool& addedMessage)
 		if (visLevel > psObj->visible[player])
 		{
 			justBecameVisible = psObj->visible[player] <= 0;
-
-			psObj->visible[player] = MIN(psObj->visible[player] + visLevelInc, visLevel);
+			const auto c = MIN(psObj->visible[player] + visLevelInc, visLevel);
+			psObj->visible[player] = c;
+			debug(LOG_INFO, "setting %p player %i id %i to %i", (void*) psObj, player,  psObj->id, c);
 		}
 		else if (visLevel < psObj->visible[player])
 		{
-			psObj->visible[player] = MAX(psObj->visible[player] - visLevelDec, visLevel);
+			const auto c = MAX(psObj->visible[player] - visLevelDec, visLevel);
+			psObj->visible[player] = c;
+			debug(LOG_INFO, "setting %p player %i id %i to %i", (void*) psObj, player,  psObj->id, c);
 		}
 
 		if (justBecameVisible)
@@ -865,7 +874,19 @@ void processVisibility()
 	bool addedMessage = false;
 	for (int player = 0; player < MAX_PLAYERS; ++player)
 	{
-		BASE_OBJECT *lists[] = {apsDroidLists[player], apsStructLists[player], apsFeatureLists[player]};
+		BASE_OBJECT *lists[] = {apsDroidLists[player], apsStructLists[player]};
+		unsigned list;
+		for (list = 0; list < sizeof(lists) / sizeof(*lists); ++list)
+		{
+			for (BASE_OBJECT *psObj = lists[list]; psObj != nullptr; psObj = psObj->psNext)
+			{
+				processVisibilityLevel(psObj, addedMessage);
+			}
+		}
+	}
+	for (int player = 0; player < 1; ++player)
+	{
+		BASE_OBJECT *lists[] = {apsFeatureLists[player]};
 		unsigned list;
 		for (list = 0; list < sizeof(lists) / sizeof(*lists); ++list)
 		{
