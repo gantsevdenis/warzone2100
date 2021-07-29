@@ -93,7 +93,7 @@
 #define SCOUT_ATTACK_DIST	(TILE_UNITS * 5)
 
 static void orderClearDroidList(DROID *psDroid);
-
+static bool canMoveRepairTurret(DROID *psDroid);
 /** Whether an order effect has been displayed
  * @todo better documentation required.
  */
@@ -302,6 +302,36 @@ static bool tryDoRepairlikeAction(DROID *psDroid)
 	return true;
 }
 
+// here, psDroid is always in a group
+// commander order is always DORDER_MOVE
+// psDroid is always a mobile repair turret
+static bool canMoveRepairTurret(DROID *psDroid)
+{
+	// return true, so that if smth bad happens at least droid won't be stuck in place
+	ASSERT_OR_RETURN(true, psDroid->droidType == DROID_REPAIR, "incorrect droid type");
+	ASSERT_OR_RETURN(true, psDroid->psGroup != nullptr, "incorrect droid type");
+	const static auto MARGIN = 40;
+	const auto orderData = psDroid->psGroup->psCommander->order;
+	#define SQUARE(x) (x)*(x)
+	const auto cutOff = SQUARE(orderData.pos.x - psDroid->pos.x - MARGIN) + SQUARE(orderData.pos.y - psDroid->pos.y - MARGIN);
+	debug(LOG_INFO, "cutoff is %i, orderData %i %i", cutOff, orderData.pos.x, orderData.pos.y);
+	for (DROID *psCurr = psDroid->psGroup->psList; psCurr; psCurr = psCurr->psGrpNext)
+	{
+		// ignore other repair turrets
+		if (psCurr->droidType != DROID_REPAIR)
+		{
+			const auto thisDist = SQUARE(orderData.pos.x - psCurr->pos.x) + SQUARE(orderData.pos.y - psCurr->pos.y);
+			debug(LOG_INFO, "%s at distance %i", psCurr->aName, thisDist);
+			if (thisDist > cutOff)
+			{
+				// there is someone behind us! Not moving
+				return false;
+			}
+		}
+	}
+	#undef SQUARE
+	return true;
+}
 /** This function updates all the orders status, according with psdroid's current order and state.
  */
 void orderUpdateDroid(DROID *psDroid)
@@ -346,12 +376,26 @@ void orderUpdateDroid(DROID *psDroid)
 			// started a new order, quit
 			break;
 		}
+		else if (hasCommander(psDroid) && psDroid->droidType == DROID_REPAIR && psDroid->psGroup->psCommander->order.type == DORDER_MOVE)
+		{
+			// check wether we should start moving..
+			if (canMoveRepairTurret(psDroid))
+			{
+				debug(LOG_INFO, "ok to move.");
+				orderDroidLoc(psDroid, DORDER_MOVE, psDroid->psGroup->psCommander->order.pos.x,  psDroid->psGroup->psCommander->order.pos.y, ModeImmediate);
+			} else
+			{
+				debug(LOG_INFO, "refusing to move");
+				orderDroid(psDroid, DORDER_HOLD, ModeImmediate);
+			}
+		}
 		// if you are in a command group, default to guarding the commander
 		else if (hasCommander(psDroid) && psDroid->order.type != DORDER_HOLD
-		         && psDroid->order.psStats != structGetDemolishStat())  // stop the constructor auto repairing when it is about to demolish
+		         && psDroid->order.psStats != structGetDemolishStat())  // stop the constructor auto repairing when it is about to demolish && psDroid->droidType != DROID_REPAIR
 		{
 			orderDroidObj(psDroid, DORDER_GUARD, psDroid->psGroup->psCommander, ModeImmediate);
 		}
+		//else if (hasCommander(psDroid) &&)
 		else if (isTransporter(psDroid) && !bMultiPlayer)
 		{
 
@@ -450,6 +494,21 @@ void orderUpdateDroid(DROID *psDroid)
 		if (psDroid->action == DACTION_NONE || psDroid->action == DACTION_ATTACK)
 		{
 			psDroid->order = DroidOrder(DORDER_NONE);
+		}
+		// want to check here what MRT is doing..
+		else if (hasCommander(psDroid) && psDroid->droidType == DROID_REPAIR && psDroid->psGroup->psCommander->order.type == DORDER_MOVE)
+		{
+			// check wether we can still move, or should stop
+			// check wether we should start moving..
+			if (canMoveRepairTurret(psDroid))
+			{
+				debug(LOG_INFO, "ok to move2 to %i %i", psDroid->psGroup->psCommander->order.pos.x, psDroid->psGroup->psCommander->order.pos.y);
+				orderDroidLoc(psDroid, DORDER_MOVE, psDroid->psGroup->psCommander->order.pos.x, psDroid->psGroup->psCommander->order.pos.y, ModeImmediate);
+			} else
+			{
+				debug(LOG_INFO, "refusing to move2");
+				psDroid->order = DroidOrder(DORDER_NONE);
+			}
 		}
 		break;
 	case DORDER_RECOVER:
@@ -1142,6 +1201,7 @@ static void orderCmdGroupBase(DROID_GROUP *psGroup, DROID_ORDER_DATA *psData)
 	}
 	else
 	{
+		debug(LOG_INFO, "group move to %i %i", psData->pos.x, psData->pos.y);
 		for (DROID *psCurr = psGroup->psList; psCurr; psCurr = psCurr->psGrpNext)
 		{
 			syncDebug("command %d", psCurr->id);
@@ -1150,6 +1210,7 @@ static void orderCmdGroupBase(DROID_GROUP *psGroup, DROID_ORDER_DATA *psData)
 				orderDroidBase(psCurr, psData);
 			}
 		}
+
 	}
 }
 
