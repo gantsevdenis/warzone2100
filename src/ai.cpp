@@ -162,7 +162,137 @@ bool aiShutdown()
 {
 	return true;
 }
+/** Search the global list of sensors for a possible target for psObj.
+ *  Prefer CB towers first, then prefer closely-grouped targets
+ *  Cache the score per ennemy object, per gameTime so that multiple sensors detecting it 
+ *  wont need to re-iterate again
+ */
+/*
+static std::vector<std::pair<BASE_OBJECT*, uint8_t>> objScore;
+static uint32_t lastGameTime = 0;
+static BASE_OBJECT *aiSearchSensorGroupedTargets(BASE_OBJECT *psObj, int weapon_slot, WEAPON_STATS *psWStats, TARGET_ORIGIN *targetOrigin)
+{
+	int		longRange = proj_GetLongRange(psWStats, psObj->player);
+	int		tarDist = longRange * longRange;
+	bool		foundCB = false;
+	int		minDist = proj_GetMinRange(psWStats, psObj->player) * proj_GetMinRange(psWStats, psObj->player);
+	BASE_OBJECT	*psTarget = nullptr;
 
+	if (targetOrigin)
+	{
+		*targetOrigin = ORIGIN_UNKNOWN;
+	}
+	auto radius = psStats->upgrade[psObj->player].radius;
+	BASE_OBJECT *psCurrentTarget = nullptr;
+	BASE_OBJECT *psBestTarget = nullptr;
+	uint8_t currScore = 0;
+	
+	for (BASE_OBJECT *psSensor = apsSensorList[0]; psSensor; psSensor = psSensor->psNextFunc)
+	{
+		BASE_OBJECT	*psTemp = nullptr;
+		bool		isCB = false;
+
+		if (!aiCheckAlliances(psSensor->player, psObj->player))
+		{
+			continue;
+		}
+		else if (psSensor->type == OBJ_DROID)
+		{
+			DROID		*psDroid = (DROID *)psSensor;
+
+			ASSERT_OR_RETURN(nullptr, psDroid->droidType == DROID_SENSOR, "A non-sensor droid in a sensor list is non-sense");
+			// Skip non-observing droids. This includes Radar Detectors at the moment since they never observe anything.
+			if (psDroid->action != DACTION_OBSERVE)
+			{
+				continue;
+			}
+			// Artillery should not fire at objects observed by VTOL CB/Strike sensors.
+			if (asSensorStats[psDroid->asBits[COMP_SENSOR]].type == VTOL_CB_SENSOR ||
+				asSensorStats[psDroid->asBits[COMP_SENSOR]].type == VTOL_INTERCEPT_SENSOR ||
+				objRadarDetector((BASE_OBJECT *)psDroid))
+			{
+				continue;
+			}
+			psTemp = psDroid->psActionTarget[0];
+			isCB = asSensorStats[psDroid->asBits[COMP_SENSOR]].type == INDIRECT_CB_SENSOR;
+		}
+		else if (psSensor->type == OBJ_STRUCTURE)
+		{
+			STRUCTURE	*psCStruct = (STRUCTURE *)psSensor;
+
+			// skip incomplete structures
+			if (psCStruct->status != SS_BUILT)
+			{
+				continue;
+			}
+			// Artillery should not fire at objects observed by VTOL CB/Strike sensors.
+			if (psCStruct->pStructureType->pSensor->type == VTOL_CB_SENSOR ||
+				psCStruct->pStructureType->pSensor->type == VTOL_INTERCEPT_SENSOR ||
+				objRadarDetector((BASE_OBJECT *)psCStruct))
+			{
+				continue;
+			}
+			psTemp = psCStruct->psTarget[0];
+			isCB = structCBSensor(psCStruct);
+		}
+		if (!psTemp || psTemp->died || aiObjectIsProbablyDoomed(psTemp, false) || !validTarget(psObj, psTemp, 0) || aiCheckAlliances(psTemp->player, psObj->player))
+		{
+			continue;
+		}
+		auto foundScore = std::find_if(objScore.cbegin(), objScore.cend(), [psObj] (std::pair<BASE_OBJECT*, uint8_t> pair){
+			return pair.first->id == psObj->id;
+		});
+
+		if (foundScore == objScore.cend())
+		{
+			// first time seeing this one		
+			auto gridList = gridStartIterate(psTemp->pos.x, psTemp->pos.y, radius);
+			uint8_t score = 0; //  definitely don't need more than 255 score
+			// count nb of LEGGED, HOVER, WHEELS
+			// check visibility too
+			// shortCircuit number of iterations?
+			for (GridIterator gi = gridList.begin(); gi != gridList.end(); ++gi)
+			{
+				BASE_OBJECT *psCurr = *gi;
+				if (psCurr->died)
+				{
+					ASSERT(psCurr->type < OBJ_NUM_TYPES, "Bad pointer! type=%u", psCurr->type);
+					continue;  // Do not damage dead objects further.
+				}
+				if (!psCurr->visible[psObj->player])
+				{
+					// dont take into account invisible droids/structures
+					continue;
+				}
+				switch (psCurr->type)
+				{
+				case OBJ_DROID:
+					auto psDroid = (DROID *) psCurr;
+					DROID_TEMPLATE sTemplate;
+					templateSetParts(psDroid, &sTemplate);
+					if (asPropulsionStats[sTemplate.asParts[COMP_PROPULSION]].propulsionType == PROPULSION_TYPE_LEGGED ||
+						asPropulsionStats[sTemplate.asParts[COMP_PROPULSION]].propulsionType == PROPULSION_TYPE_LIFT ||
+						asPropulsionStats[sTemplate.asParts[COMP_PROPULSION]].propulsionType == PROPULSION_TYPE_WHEELED)
+					{
+						score++;
+					}
+					break;
+				case OBJ_STRUCTURE: break;
+				case OBJ_FEATURE: break;
+				}
+			}
+			objScore.push_back({psTemp, score});
+		} else 
+		{
+			auto s = *foundScore;
+			if (s.second > b)
+			psBestTarget = s.first;
+		}
+
+
+	}
+}
+*/
 /** Search the global list of sensors for a possible target for psObj. */
 static BASE_OBJECT *aiSearchSensorTargets(BASE_OBJECT *psObj, int weapon_slot, WEAPON_STATS *psWStats, TARGET_ORIGIN *targetOrigin)
 {
