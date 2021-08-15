@@ -1351,6 +1351,11 @@ STRUCTURE *buildStructureDir(STRUCTURE_STATS *pStructureType, UDWORD x, UDWORD y
 		{
 			return nullptr;
 		}
+		// Structure is visible to anyone with shared vision.
+		for (unsigned vPlayer = 0; vPlayer < MAX_PLAYERS; ++vPlayer)
+		{
+			psBuilding->visible[vPlayer] = hasSharedVision(vPlayer, player) ? UINT8_MAX : 0;
+		}
 
 		//fill in other details
 		psBuilding->pStructureType = pStructureType;
@@ -1386,10 +1391,13 @@ STRUCTURE *buildStructureDir(STRUCTURE_STATS *pStructureType, UDWORD x, UDWORD y
 					delete psBuilding;
 					return nullptr;
 				}
-				// remove it from the map
-				turnOffMultiMsg(true); // don't send this one!
-				removeFeature(psFeature);
-				turnOffMultiMsg(false);
+				if (psBuilding->visible[selectedPlayer])
+				{
+					// remove it from the map
+					turnOffMultiMsg(true); // don't send this one!
+					removeFeature(psFeature);
+					turnOffMultiMsg(false);
+				}	
 			}
 		}
 
@@ -1507,18 +1515,11 @@ STRUCTURE *buildStructureDir(STRUCTURE_STATS *pStructureType, UDWORD x, UDWORD y
 
 		psBuilding->resistance = (UWORD)structureResistance(pStructureType, (UBYTE)player);
 		psBuilding->lastResistance = ACTION_START_TIME;
-
-		// Do the visibility stuff before setFunctionality - so placement of DP's can work
-		memset(psBuilding->seenThisTick, 0, sizeof(psBuilding->seenThisTick));
-
-		// Structure is visible to anyone with shared vision.
-		for (unsigned vPlayer = 0; vPlayer < MAX_PLAYERS; ++vPlayer)
-		{
-			psBuilding->visible[vPlayer] = hasSharedVision(vPlayer, player) ? UINT8_MAX : 0;
-		}
-
 		// Reveal any tiles that can be seen by the structure
 		visTilesUpdate(psBuilding);
+		
+		// Do the visibility stuff before setFunctionality - so placement of DP's can work
+		memset(psBuilding->seenThisTick, 0, sizeof(psBuilding->seenThisTick));
 
 		/*if we're coming from a SAVEGAME and we're on an Expand_Limbo mission,
 		any factories that were built previously for the selectedPlayer will
