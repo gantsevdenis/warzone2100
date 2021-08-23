@@ -2274,6 +2274,7 @@ void moveUpdateDroid(DROID *psDroid)
 	// See if it's got blocked
 	if ((psPropStats->propulsionType != PROPULSION_TYPE_LIFT) && moveBlocked(psDroid))
 	{
+		debug(LOG_INFO, "%i is blocked", psDroid->id);
 		objTrace(psDroid->id, "status: id %d blocked", (int)psDroid->id);
 		psDroid->sMove.Status = MOVETURN;
 	}
