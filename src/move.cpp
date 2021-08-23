@@ -1073,6 +1073,7 @@ static void moveCalcDroidSlide(DROID *psDroid, int *pmx, int *pmy)
 			    && psDroid->lastFrustratedTime > 0
 			    && gameTime - psDroid->lastFrustratedTime < FRUSTRATED_TIME)
 			{
+				debug(LOG_INFO, "%s running thru ally units", psDroid->aName);
 				continue; // clip straight through own units when sufficient frustrated -- using cheat codes!
 			}
 		}
@@ -1103,6 +1104,7 @@ static void moveCalcDroidSlide(DROID *psDroid, int *pmx, int *pmy)
 				*pmx = 0;
 				*pmy = 0;
 				psObst = nullptr;
+				debug(LOG_INFO, "%s hit more than one droid, stop", psDroid->aName);
 				break;
 			}
 			else
@@ -1132,6 +1134,7 @@ static void moveCalcDroidSlide(DROID *psDroid, int *pmx, int *pmy)
 					    && psShuffleDroid->action != DACTION_WAITDURINGREARM
 					    && psShuffleDroid->sMove.Status == MOVEINACTIVE)
 					{
+						debug(LOG_INFO, "telling inactive droids to move their asses");
 						moveShuffleDroid(psShuffleDroid, psDroid->sMove.target - psDroid->pos.xy());
 					}
 				}
@@ -1142,6 +1145,7 @@ static void moveCalcDroidSlide(DROID *psDroid, int *pmx, int *pmy)
 	if (psObst != nullptr)
 	{
 		// Try to slide round it
+		debug(LOG_INFO, "%s trying to slide around", psDroid->aName);
 		moveCalcSlideVector(psDroid, psObst->pos.x, psObst->pos.y, pmx, pmy);
 	}
 	CHECK_DROID(psDroid);

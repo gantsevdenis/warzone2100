@@ -39,7 +39,7 @@
 #include "astar.h"
 
 #include "fpath.h"
-
+#include <RVO.h>
 // If the path finding system is shutdown or not
 static volatile bool fpathQuit = false;
 
@@ -68,6 +68,7 @@ static uint32_t         waitingForResultId;
 static WZ_SEMAPHORE     *waitingForResultSemaphore = nullptr;
 
 static PATHRESULT fpathExecute(PATHJOB psJob);
+
 
 
 /** This runs in a separate thread */

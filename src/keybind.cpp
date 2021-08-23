@@ -2424,3 +2424,253 @@ void kf_ToggleFullscreen()
 {
 	war_setWindowMode(wzAltEnterToggleFullscreen());
 }
+
+struct droidPos
+{
+	DROID *psDroid;
+	glm::ivec2 pos; // square of position
+	droidPos(DROID * psDroid, glm::ivec2 pos): psDroid(psDroid), pos(pos) {};
+};
+/*
+MappableFunction kf_Dissipate()
+{
+	return [](){
+		std::vector<DROID*> selected;
+		std::vector<Vector3i> poss;
+		std::vector<droidPos> selectedWithPos;
+		int min_x = 9999999;
+		int min_y = 9999999;
+		int max_x = 0;
+		int max_y = 0;
+		for (DROID *psDroid = apsDroidLists[selectedPlayer]; psDroid; psDroid = psDroid->psNext)
+		{
+			if (psDroid->selected)
+			{
+				selected.push_back(psDroid);
+				poss.push_back(psDroid->pos);
+				droidPos tmp(psDroid, psDroid->pos.x);
+				selectedWithPos.push_back(tmp);
+				max_x = std::max(max_x, psDroid->pos.x);
+				max_y = std::max(max_y, psDroid->pos.y);
+				min_x = std::min(min_x, psDroid->pos.x);
+				min_y = std::min(min_y, psDroid->pos.y);
+				debug(LOG_INFO, "%s pos %d %d",psDroid->aName, psDroid->pos.x, psDroid->pos.y);
+			}
+		}
+		debug(LOG_INFO, "minx %d miny %d maxx %d maxy %d", min_x, min_y, max_x, max_y);
+		// pick up some large enough number..
+		int sideLen = std::max(std::max(max_x - min_x, max_y - min_y) * 3 / 2, 400);
+		//debug(LOG_INFO, "diff x %d y %d", max_x - min_x, max_y - min_y);
+		unsigned dots = std::ceil(std::sqrt(selected.size()));
+		debug(LOG_INFO, "sq side is %d with %d dots", sideLen, dots);
+		unsigned spacement = std::round(sideLen / dots);
+		std::vector<Vector2i> dotPos;
+		std::vector<unsigned> dotSq;
+		for (int i = 0; i < dots; i++)
+		{
+			for (int j = 0; j < dots; j++)
+			{
+				dotPos.push_back(Vector2i(min_x + spacement * i, min_y + spacement * j));
+				dotSq.push_back((min_x + spacement * i) *  (min_y + spacement * j));
+			}
+		
+		}
+		std::sort(selectedWithPos.begin(), selectedWithPos.end(), [](droidPos left, droidPos right){return left.pos.x * left.pos.y < right.pos.x * right.pos.y;});
+		std::sort(dotPos.begin(), dotPos.end(), [](Vector2i left, Vector2i right){return left.x*left.y < right.x * right.y;});
+		//debug(LOG_INFO, "");
+		
+		for (int i = 0; i< selectedWithPos.size(); i++)
+		{
+			debug(LOG_INFO, "sending %s to  (%d %d)", selected[i]->aName, dotPos[i].x, dotPos[i].y);
+			orderDroidLoc(selectedWithPos[i].psDroid, DORDER_MOVE,  dotPos[i].x, dotPos[i].y, ModeQueue);
+		} 
+	};
+}
+*/
+MappableFunction kf_Dissipate3()
+{
+	#define SQUARE(X) (X)*(X)
+	return [](){
+		std::vector<DROID*> selected;
+		std::vector<Vector3i> poss;
+		std::vector<droidPos> selectedWithPos;
+		int min_x = INT32_MAX;
+		int min_y = INT32_MAX;
+		int max_x = 0;
+		int max_y = 0;
+		for (DROID *psDroid = apsDroidLists[selectedPlayer]; psDroid; psDroid = psDroid->psNext)
+		{
+			if (psDroid->selected)
+			{
+				selected.push_back(psDroid);
+				poss.push_back(psDroid->pos);
+				droidPos tmp(psDroid, psDroid->pos.xy());
+				selectedWithPos.push_back(tmp);
+				max_x = std::max(max_x, psDroid->pos.x);
+				max_y = std::max(max_y, psDroid->pos.y);
+				min_x = std::min(min_x, psDroid->pos.x);
+				min_y = std::min(min_y, psDroid->pos.y);
+				debug(LOG_INFO, "%s pos %d %d",psDroid->aName, psDroid->pos.x, psDroid->pos.y);
+			}
+		}
+		debug(LOG_INFO, "minx %d miny %d maxx %d maxy %d", min_x, min_y, max_x, max_y);
+		// pick up some large enough number..
+		int sideLen = std::max(std::max(max_x - min_x, max_y - min_y) * 3 / 2, 400);
+		//debug(LOG_INFO, "diff x %d y %d", max_x - min_x, max_y - min_y);
+		unsigned dots = std::ceil(std::sqrt(selected.size()));
+		debug(LOG_INFO, "sq side is %d with %d target position per side", sideLen, dots);
+		unsigned spacement = std::round(sideLen / dots);
+		std::vector<Vector2i> dotPos;
+		dotPos.reserve(dots*dots);
+		bool *posTaken = (bool*) alloca(sizeof(bool) * dotPos.size());
+		//bool *droidTaken = (bool*) alloca(sizeof(bool) * selectedWithPos.size());
+		//memset(droidTaken, false, sizeof(bool) * selectedWithPos.size());
+		memset(posTaken, false, sizeof(bool) * dotPos.size());
+		for (int i = 0; i < dots; i++)
+		{
+			for (int j = 0; j < dots; j++)
+			{
+				dotPos.push_back(Vector2i(min_x + spacement * i, min_y + spacement * j));
+				//dotSq.push_back((min_x + spacement * i) *  (min_y + spacement * j));
+			}
+		
+		}
+		// don't reassign to targetPositions that already have a droid on them
+		/*for (int posIdx = 0; posIdx < dotPos.size(); ++posIdx)
+		{
+			for (int i = 0; i < selectedWithPos.size(); i++)
+			{
+				const unsigned distanceToTarget = SQUARE(selectedWithPos[i].pos.x - dotPos[posIdx].x) + SQUARE(selectedWithPos[i].pos.y - dotPos[posIdx].y);
+				if (!droidTaken[i] && distanceToTarget <= (SQUARE(spacement))/2)
+				{
+					droidTaken[i] = true;
+					posTaken[posIdx] = true;
+					debug(LOG_INFO, "not reassigning to (%i, %i), because already occupied with %s", dotPos[posIdx].x, dotPos[posIdx].y, selectedWithPos[i].psDroid->aName);
+					break;
+				}
+			}
+		}*/
+
+		for (int i = 0; i< selectedWithPos.size(); i++)
+		{
+			// find closest target position
+			//
+			//orderDroidLoc(selectedWithPos[i].psDroid, DORDER_MOVE,  dotPos[i].x, dotPos[i].y, ModeQueue);
+			
+			int nearestTargetPos = -1;
+			//if (droidTaken[i]) continue;
+			unsigned minDistanceToTarget = UINT32_MAX;
+			for (int posIdx = 0; posIdx < dotPos.size(); ++posIdx)
+			{
+				if (!posTaken[posIdx])
+				{
+					const unsigned distanceToTarget = SQUARE(selectedWithPos[i].pos.x - dotPos[posIdx].x) + SQUARE(selectedWithPos[i].pos.y - dotPos[posIdx].y);
+					if (distanceToTarget < minDistanceToTarget)
+					{
+						minDistanceToTarget = distanceToTarget;
+						nearestTargetPos = posIdx;
+					}
+				}
+			}
+			if (nearestTargetPos != -1)
+			{
+				posTaken[nearestTargetPos] = true;
+				// out of the loop?
+				debug(LOG_INFO, "sending %s to  (%d %d)", selected[i]->aName, dotPos[nearestTargetPos].x, dotPos[nearestTargetPos].y);
+				orderDroidLoc(selectedWithPos[i].psDroid, DORDER_MOVE,  dotPos[nearestTargetPos].x, dotPos[nearestTargetPos].y, ModeQueue);
+			}
+		} 
+	};
+}
+
+// Manhattan distance?
+/*MappableFunction kf_Dissipate2()
+{
+	return [](){
+		std::vector<DROID*> selected;
+		std::vector<Vector3i> poss;
+		std::vector<droidPos> selectedWithPos;
+		int min_x = 9999999;
+		int min_y = 9999999;
+		int max_x = 0;
+		int max_y = 0;
+		for (DROID *psDroid = apsDroidLists[selectedPlayer]; psDroid; psDroid = psDroid->psNext)
+		{
+			if (psDroid->selected)
+			{
+				selected.push_back(psDroid);
+				poss.push_back(psDroid->pos);
+				droidPos tmp(psDroid, psDroid->pos.x);
+				selectedWithPos.push_back(tmp);
+				max_x = std::max(max_x, psDroid->pos.x);
+				max_y = std::max(max_y, psDroid->pos.y);
+				min_x = std::min(min_x, psDroid->pos.x);
+				min_y = std::min(min_y, psDroid->pos.y);
+				debug(LOG_INFO, "%s pos %d %d",psDroid->aName, psDroid->pos.x, psDroid->pos.y);
+			}
+		}
+		debug(LOG_INFO, "minx %d miny %d maxx %d maxy %d", min_x, min_y, max_x, max_y);
+		// pick up some large enough number..
+		int sideLen = std::max(std::max(max_x - min_x, max_y - min_y) * 4 / 3, 200);
+		//debug(LOG_INFO, "diff x %d y %d", max_x - min_x, max_y - min_y);
+		unsigned nbSlots = std::ceil(std::sqrt(selected.size()));
+		debug(LOG_INFO, "sq side is %d with %d dots", sideLen, nbSlots);
+		unsigned spacement = std::round(sideLen / nbSlots) + 100;
+		//std::vector<Vector2i> slots;
+		//std::vector<unsigned> dotSq;s
+
+		bool *usedDroids = (bool*) calloc(selectedWithPos.size(), sizeof(bool));
+		uint8_t used = 0;
+		for (int i = 0; i < nbSlots; i++)
+		{
+			const auto slotx = min_x + spacement * i;
+			for (int j = 0; j < nbSlots; j++)
+			{
+				if (used == selectedWithPos.size())
+				{
+					break;
+				}
+				const auto sloty = min_y + spacement * j; 
+				//slots.push_back(Vector2i(slotx, sloty));
+				//dotSq.push_back((min_x + spacement * i) *  (min_y + spacement * j));
+				auto bestDist = 999999;
+				auto bestDroidIdx = -1;
+
+				// find closest droid
+				// this is bad too lol
+				for (uint8_t droidIdx = 0; droidIdx < selectedWithPos.size(); ++droidIdx)
+				{
+					const auto dist = std::abs(selectedWithPos[droidIdx].pos.x - min_x) + std::abs(selectedWithPos[droidIdx].pos.y - min_y);
+					if (usedDroids[droidIdx] == false && dist < bestDist)
+					{
+						bestDist = dist;
+						bestDroidIdx = droidIdx;
+					}
+				}
+				debug(LOG_INFO, "sending %s to  (%d %d)", selectedWithPos[bestDroidIdx].psDroid->aName, slotx, sloty);
+				orderDroidLoc(selectedWithPos[bestDroidIdx].psDroid, DORDER_MOVE, slotx, sloty, ModeImmediate);
+				usedDroids[bestDroidIdx] = true;
+				++used;
+			}
+		
+		}
+		// this is really bad...
+		std::sort(selectedWithPos.begin(), selectedWithPos.end(), [min_y, min_x](droidPos left, droidPos right) {
+			return std::abs(left.pos.x - min_x) + std::abs(left.pos.y - min_y) < std::abs(right.pos.x - min_x) + std::abs(right.pos.y - min_y);
+		});
+		std::sort(slots.begin(), slots.end(), [min_y, min_x](Vector2i left, Vector2i right) {
+			return std::abs(left.x - min_x) + std::abs(left.y - min_y) < std::abs(right.x - min_x) + std::abs(right.y - min_y);
+		});
+		
+		for (int i = 0; i< selectedWithPos.size(); i++)
+		{
+			debug(LOG_INFO, "sending %s to  (%d %d)", selected[i]->aName, slots[i].x, slots[i].y);
+			orderDroidLoc(selectedWithPos[i].psDroid, DORDER_MOVE,  slots[i].x, slots[i].y, ModeQueue);
+		} 
+		
+
+		
+
+	};
+}
+*/

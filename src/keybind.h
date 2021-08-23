@@ -194,5 +194,6 @@ void kf_QuickSave();
 void kf_QuickLoad();
 
 void kf_ToggleFullscreen();
-
+MappableFunction kf_Dissipate();
+MappableFunction kf_Dissipate3();
 #endif // __INCLUDED_SRC_KEYBIND_H__

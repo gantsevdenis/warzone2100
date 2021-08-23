@@ -100,9 +100,9 @@ if(MSVC)
 	# C4267: 'conversion': conversion from 'type1' to 'type2', possible loss of data // FIXME!!
 	target_compile_options(warzone2100 PRIVATE "/wd4267")
 endif()
-
+target_include_directories(warzone2100 PRIVATE "${CMAKE_SOURCE_DIR}/3rdparty/RVO2/src")
 target_link_libraries(warzone2100 exception-handler gamelib wzmaplib ivis-opengl netplay sdl-backend framework sequence sound widget)
-target_link_libraries(warzone2100 launchinfo EmbeddedJSONSignature)
+target_link_libraries(warzone2100 launchinfo EmbeddedJSONSignature RVO)
 if(ENABLE_NLS)
 	target_link_libraries(warzone2100 ${Intl_LIBRARIES})
 endif()
