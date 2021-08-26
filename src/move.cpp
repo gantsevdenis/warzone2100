@@ -45,6 +45,7 @@
 #include "action.h"
 #include "order.h"
 #include "astar.h"
+#include "astar2.h"
 #include "mapgrid.h"
 #include "display.h"	// needed for widgetsOn flag.
 #include "effects.h"
@@ -634,7 +635,6 @@ static bool moveBlocked(DROID *psDroid)
 {
 	SDWORD	xdiff, ydiff, diffSq;
 	UDWORD	blockTime;
-
 	if (psDroid->sMove.bumpTime == 0 || psDroid->sMove.bumpTime > gameTime)
 	{
 		// no bump - can't be blocked
@@ -691,7 +691,7 @@ static bool moveBlocked(DROID *psDroid)
 			moveDroidTo(psDroid, psDroid->sMove.destination.x, psDroid->sMove.destination.y);
 			return false;
 		}
-
+		debug(LOG_INFO, "%i is blocked", psDroid->id);
 		return true;
 	}
 
@@ -803,6 +803,7 @@ static void moveCalcBlockingSlide(DROID *psDroid, int32_t *pmx, int32_t *pmy, ui
 		psDroid->sMove.pauseTime = 0;
 		psDroid->sMove.bumpPos = psDroid->pos;
 		psDroid->sMove.bumpDir = psDroid->rot.direction;
+		debug(LOG_INFO, "%i bumped into smth", psDroid->id);
 	}
 
 	if (tx != ntx && ty != nty)

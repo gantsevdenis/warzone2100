@@ -37,8 +37,7 @@
 #include "map.h"
 #include "multiplay.h"
 #include "astar.h"
-
-#include "fpath.h"
+#include "astar2.h"
 
 // If the path finding system is shutdown or not
 static volatile bool fpathQuit = false;
@@ -461,7 +460,8 @@ PATHRESULT fpathExecute(PATHJOB job)
 	result.originalDest = Vector2i(job.destX, job.destY);
 
 	ASR_RETVAL retval = fpathAStarRoute(&result.sMove, &job);
-
+	ASR_RETVAL retVal2 = fpathAStar2Route(&result.sMove, &job);
+	(void)retVal2;
 	ASSERT(retval != ASR_OK || result.sMove.asPath.size() > 0, "Ok result but no path in result");
 	switch (retval)
 	{
