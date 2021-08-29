@@ -1203,10 +1203,12 @@ INT_RETVAL intRunWidgets()
 						&& intNumSelectedDroids(DROID_CYBORG_CONSTRUCT) == 0
 						&& psSelectedBuilder != nullptr)
 					{
+						debug(LOG_INFO, "ordering droids to build1	 (%i %i)", pos.x, pos.y);
 						orderDroidStatsLocDir(psSelectedBuilder, DORDER_BUILD, (STRUCTURE_STATS *)psPositionStats, pos.x, pos.y, getBuildingDirection(), ModeQueue);
 					}
 					else
 					{
+						debug(LOG_INFO, "ordering droids to build2 (%i %i)", pos.x, pos.y);
 						orderSelectedStatsLocDir(selectedPlayer, DORDER_BUILD, (STRUCTURE_STATS *)psPositionStats, pos.x, pos.y, getBuildingDirection(), ctrlShiftDown());
 					}
 				}

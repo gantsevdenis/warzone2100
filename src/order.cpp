@@ -60,7 +60,7 @@
 #include "display3d.h"
 #include "console.h"
 #include "mapgrid.h"
-
+#include "edit3d.h"
 #include "random.h"
 
 /** How long a droid runs after it fails do respond due to low moral. */
@@ -2744,12 +2744,14 @@ void orderSelectedStatsLocDir(UDWORD player, DROID_ORDER order, STRUCTURE_STATS 
 	{
 		if (psCurr->selected && isConstructionDroid(psCurr))
 		{
+			debug(LOG_INFO, "droid %i, add? %i", psCurr->id, add);
 			if (add)
 			{
 				orderDroidStatsLocDirAdd(psCurr, order, psStats, x, y, direction);
 			}
 			else
 			{
+				debug(LOG_INFO, "order: buildDetails was (%i %i), hw (%i %i)", sBuildDetails.x, sBuildDetails.y, sBuildDetails.height, sBuildDetails.width);
 				orderDroidStatsLocDir(psCurr, order, psStats, x, y, direction, ModeQueue);
 			}
 		}

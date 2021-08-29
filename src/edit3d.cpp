@@ -232,7 +232,7 @@ bool found3DBuilding(Vector2i &pos)
 	{
 		return false;
 	}
-
+	debug(LOG_INFO, "buildDetails was (%i %i), hw (%i %i)", sBuildDetails.x, sBuildDetails.y, sBuildDetails.height, sBuildDetails.width);
 	pos = world_coord({sBuildDetails.x, sBuildDetails.y}) + world_coord(
 		(getBuildingDirection() & 0x4000) == 0?
 			Vector2i{sBuildDetails.width, sBuildDetails.height} : Vector2i{sBuildDetails.height, sBuildDetails.width}

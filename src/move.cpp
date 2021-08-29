@@ -1297,7 +1297,9 @@ static bool moveReachedWayPoint(DROID *psDroid)
 	}
 
 	// Else check current waypoint
-	return dot(droid, droid) < sqprecision;
+	bool out = dot(droid, droid) < sqprecision;
+	//debug(LOG_INFO, "droid %i reached destination (%i %i)? %i", psDroid->id, psDroid->sMove.target.x, psDroid->sMove.target.y, out);
+	return out;
 }
 
 #define MAX_SPEED_PITCH  60
