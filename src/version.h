@@ -27,6 +27,7 @@
 const char *version_getVersionString();
 const char *version_getFormattedVersionString(bool translated = true); // not thread-safe
 std::string version_getVersionedAppDirFolderName();
+std::string version_getNonVersionedAppDirFolderName();
 
 std::string version_getBuildIdentifierReleaseString();
 std::string version_getBuildIdentifierReleaseEnvironment();

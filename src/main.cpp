@@ -603,7 +603,8 @@ bool endsWith (std::string const &fullString, std::string const &endString) {
 
 static std::string getWzPlatformPrefDir()
 {
-	return getPlatformPrefDir("Warzone 2100 Project", version_getVersionedAppDirFolderName());
+	//return getPlatformPrefDir("Warzone 2100 Project", version_getVersionedAppDirFolderName());
+	return getPlatformPrefDir("Warzone 2100 Project", version_getNonVersionedAppDirFolderName());
 }
 
 static void initialize_ConfigDir()
@@ -1567,6 +1568,10 @@ int realmain(int argc, char *argv[])
 	 * directory.
 	 */
 	initialize_ConfigDir();
+	// #define MOD_PATH_MAX_LEN 512
+	// char modsFolderName[MOD_PATH_MAX_LEN] = {0};
+	const char *versionString = version_getVersionString();
+	
 
 	/*** Initialize directory structure ***/
 
@@ -1578,13 +1583,29 @@ int realmain(int argc, char *argv[])
 
 	make_dir(MultiCustomMapsPath, "maps", nullptr); // needed to prevent crashes when getting map
 
+	PHYSFS_mkdir("mods/downloads");	// mod download directory, not versionned
+	std::string modVersionedPath = "mods/";
+	modVersionedPath.append(versionString);
+	const std::string modAutoload = modVersionedPath + "/autoload";
+	const std::string modCampaign = modVersionedPath + "/campaign";
+	const std::string modGlobal = modVersionedPath + "/global";
+	const std::string modMultiplay = modVersionedPath + "/multiplay";
+	const std::string modMusic = modVersionedPath + "/music";
+	debug(LOG_INFO, "mkdiring %s", modAutoload.c_str());
+	PHYSFS_mkdir(modAutoload.c_str());
+	PHYSFS_mkdir(modCampaign.c_str());
+	PHYSFS_mkdir(modGlobal.c_str());
+	PHYSFS_mkdir(modMultiplay.c_str());
+	PHYSFS_mkdir(modMusic.c_str());
+	
+	/*
 	PHYSFS_mkdir("mods/autoload");	// mods that are automatically loaded
 	PHYSFS_mkdir("mods/campaign");	// campaign only mods activated with --mod_ca=example.wz
-	PHYSFS_mkdir("mods/downloads");	// mod download directory
+
 	PHYSFS_mkdir("mods/global");	// global mods activated with --mod=example.wz
 	PHYSFS_mkdir("mods/multiplay");	// multiplay only mods activated with --mod_mp=example.wz
 	PHYSFS_mkdir("mods/music");	// music mods that are automatically loaded
-
+	*/
 	make_dir(MultiPlayersPath, "multiplay", "players"); // player profiles
 
 	PHYSFS_mkdir("music");	// custom music overriding default music and music mods
