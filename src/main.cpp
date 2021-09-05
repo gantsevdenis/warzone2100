@@ -1585,6 +1585,7 @@ int realmain(int argc, char *argv[])
 
 	PHYSFS_mkdir("mods/downloads");	// mod download directory, not versionned
 	std::string modVersionedPath = "mods/";
+	// TODO: This could be compile-time defined (when we have constexpr, or during build)
 	modVersionedPath.append(versionString);
 	const std::string modAutoload = modVersionedPath + "/autoload";
 	const std::string modCampaign = modVersionedPath + "/campaign";

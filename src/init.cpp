@@ -93,7 +93,7 @@
 #include "qtscript.h"
 #include "template.h"
 #include "activity.h"
-
+#include "version.h"
 #include <algorithm>
 #include <unordered_map>
 
@@ -281,15 +281,20 @@ bool rebuildSearchPath(searchPathMode mode, bool force, const char *current_map)
 #ifdef DEBUG
 				debug(LOG_WZ, "Removing [%s] from search path", curSearchPath->path);
 #endif // DEBUG
+				std::string modVersionedPath = "mods/";
+				const char *versionString = version_getVersionString();
+				// TODO: This could be compile-time defined (when we have constexpr, or during build)
+				modVersionedPath.append(versionString);
 				// Remove maps and mods
 				removeSubdirs(curSearchPath->path, "maps");
-				removeSubdirs(curSearchPath->path, "mods/music");
-				removeSubdirs(curSearchPath->path, "mods/global");
-				removeSubdirs(curSearchPath->path, "mods");
-				removeSubdirs(curSearchPath->path, "mods/autoload");
-				removeSubdirs(curSearchPath->path, "mods/campaign");
-				removeSubdirs(curSearchPath->path, "mods/multiplay");
+				removeSubdirs(curSearchPath->path, (modVersionedPath + "/music").c_str());
+				removeSubdirs(curSearchPath->path, (modVersionedPath + "/global").c_str());
+				removeSubdirs(curSearchPath->path, (modVersionedPath + "/autoload").c_str());
+				removeSubdirs(curSearchPath->path, (modVersionedPath + "/campaign").c_str());
+				removeSubdirs(curSearchPath->path, (modVersionedPath + "/multiplay").c_str());
 				removeSubdirs(curSearchPath->path, "mods/downloads");
+				removeSubdirs(curSearchPath->path, "mods");
+				
 
 				// Remove multiplay patches
 				sstrcpy(tmpstr, curSearchPath->path);
@@ -397,15 +402,23 @@ bool rebuildSearchPath(searchPathMode mode, bool force, const char *current_map)
 #endif // DEBUG
 				// Add global and multiplay mods
 				PHYSFS_mount(curSearchPath->path, NULL, PHYSFS_APPEND);
-				addSubdirs(curSearchPath->path, "mods/music", PHYSFS_APPEND, nullptr, false);
+				std::string modVersionedPath = "mods/";
+				const char *versionString = version_getVersionString();
+				// TODO: This could be compile-time defined (when we have constexpr, or during build)
+				modVersionedPath.append(versionString);
+				const std::string modMusic = modVersionedPath + "/music";
+				const std::string modGlobal = modVersionedPath + "/global";
+				const std::string modMultiplay = modVersionedPath + "/multiplay";
+				const std::string modAutoload = modVersionedPath + "/autoload";
+				addSubdirs(curSearchPath->path, modMusic.c_str(), PHYSFS_APPEND, nullptr, false);
 
 				// Only load if we are host or singleplayer (Initial mod load relies on this, too)
 				if (ingame.side == InGameSide::HOST_OR_SINGLEPLAYER || !NetPlay.bComms)
 				{
-					addSubdirs(curSearchPath->path, "mods/global", PHYSFS_APPEND, use_override_mods ? &override_mods : &global_mods, true);
+					addSubdirs(curSearchPath->path, modGlobal.c_str(), PHYSFS_APPEND, use_override_mods ? &override_mods : &global_mods, true);
 					addSubdirs(curSearchPath->path, "mods", PHYSFS_APPEND, use_override_mods ? &override_mods : &global_mods, true);
-					addSubdirs(curSearchPath->path, "mods/autoload", PHYSFS_APPEND, use_override_mods ? &override_mods : nullptr, true);
-					addSubdirs(curSearchPath->path, "mods/multiplay", PHYSFS_APPEND, use_override_mods ? &override_mods : &multiplay_mods, true);
+					addSubdirs(curSearchPath->path, modAutoload.c_str(), PHYSFS_APPEND, use_override_mods ? &override_mods : nullptr, true);
+					addSubdirs(curSearchPath->path, modMultiplay.c_str(), PHYSFS_APPEND, use_override_mods ? &override_mods : &multiplay_mods, true);
 				}
 				else
 				{
