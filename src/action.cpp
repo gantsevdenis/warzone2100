@@ -735,10 +735,11 @@ void actionUpdateDroid(DROID *psDroid)
 					WEAPON_STATS *const psWeapStats = &asWeaponStats[psDroid->asWeaps[i].nStat];
 					if (psDroid->asWeaps[i].nStat > 0
 					    && psWeapStats->rotate
-					    && aiBestNearestTarget(psDroid, &psTemp, i) >= 0)
+					    && aiBestNearestTarget(psDroid, &psTemp, i) >= 0 && secondaryGetState(psDroid, DSO_ATTACK_LEVEL) == DSS_ALEV_ALWAYS)
 					{
-						if (secondaryGetState(psDroid, DSO_ATTACK_LEVEL) == DSS_ALEV_ALWAYS)
+						if (targetDoesMatchPreference(psDroid, psTemp, i))
 						{
+							debug(LOG_INFO, "was NONE or WAITFORREPAIR, but %i found good target %i", psDroid->id, psTemp->id);
 							psDroid->action = DACTION_ATTACK;
 							setDroidActionTarget(psDroid, psTemp, i);						
 						}
@@ -1280,7 +1281,7 @@ void actionUpdateDroid(DROID *psDroid)
 		ASSERT_OR_RETURN(, psDroid->psActionTarget[0] != nullptr, "action update move to attack target is NULL");
 		for (unsigned i = 0; i < psDroid->numWeaps; ++i)
 		{
-			hasValidWeapon |= validTarget(psDroid, psDroid->psActionTarget[0], i);
+			hasValidWeapon |= (validTarget(psDroid, psDroid->psActionTarget[0], i) && targetDoesMatchPreference(psDroid, psDroid->psActionTarget[0], i));
 		}
 		//check the target hasn't become one the same player ID - Electronic Warfare, and that the target is still valid.
 		if ((electronicDroid(psDroid) && psDroid->player == psDroid->psActionTarget[0]->player) || !hasValidWeapon)
