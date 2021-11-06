@@ -420,6 +420,12 @@
 -5,1,image_stop_down.png
 -5,1,image_guard_up.png
 -5,1,image_guard_down.png
+0,0,wz_order_building_up.png
+0,0,wz_order_building_down.png
+0,0,wz_order_cyborg_up.png
+0,0,wz_order_cyborg_grey.png
+0,0,wz_order_tank_up.png
+0,0,wz_order_tank_down.png
 -5,1,image_pause_up.png
 -5,1,image_pause_down.png
 -5,1,image_autorepair_up.png
