@@ -623,7 +623,7 @@ There can only be 'limit' number of entries
 'topic' is the currently researched topic
 */
 // NOTE by AJL may 99 - skirmish now has it's own version of this, skTopicAvail.
-std::vector<uint16_t> fillResearchList(UDWORD playerID, nonstd::optional<UWORD> topic, UWORD limit)
+std::vector<uint16_t> fillResearchList(UDWORD playerID, nonstd::optional<UWORD> topic, UWORD limit, uint16_t showTechMask)
 {
 	std::vector<uint16_t> list;
 
@@ -632,7 +632,14 @@ std::vector<uint16_t> fillResearchList(UDWORD playerID, nonstd::optional<UWORD> 
 		// if the inc matches the 'topic' - automatically add to the list
 		if ((topic.has_value() && inc == topic.value()) || researchAvailable(inc, playerID, ModeQueue))
 		{
-			list.push_back(inc);
+			if (asResearch[inc].iconID == IMAGE_RES_COMPUTERTECH && (SHOW_COMPUTERTECH & showTechMask))
+			{
+				list.push_back(inc);
+			}
+			else
+			{
+				list.push_back(inc);
+			}
 			if (list.size() == limit)
 			{
 				return list;

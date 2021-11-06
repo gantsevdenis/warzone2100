@@ -54,7 +54,7 @@ void ResearchController::updateResearchOptionsList()
 	auto research = highlightedIndex.has_value() ? (RESEARCH *)getObjectStatsAt(highlightedIndex.value()) : nullptr;
 	auto researchIndex = research != nullptr ? nonstd::optional<UWORD>(research->index) : nonstd::nullopt;
 
-	for (auto researchOption: fillResearchList(selectedPlayer, researchIndex, MAXRESEARCH))
+	for (auto researchOption: fillResearchList(selectedPlayer, researchIndex, MAXRESEARCH, UINT16_MAX))
 	{
 		stats.push_back(&asResearch[researchOption]);
 	}
@@ -225,6 +225,22 @@ public:
 		{
 			icon->move(icon->x(), y);
 		}
+	}
+};
+
+class ReasearchFilterButton: public IntFormAnimated
+{
+private:
+	typedef ObjectButton BaseWidget;
+
+protected:
+	ReasearchFilterButton (): IntFormAnimated() {}
+public:
+	static std::shared_ptr<ReasearchFilterButton> make(const std::shared_ptr<ResearchController> &controller, size_t objectIndex)
+	{
+		class make_shared_enabler: public ReasearchFilterButton {};
+		auto widget = std::make_shared<make_shared_enabler>();
+		return widget;
 	}
 };
 
@@ -672,7 +688,11 @@ bool ResearchController::showInterface()
 	}
 
 	auto objectsForm = ResearchObjectsForm::make(shared_from_this());
+	auto templbaseForm = std::make_shared<IntFormAnimated>(false);
+	makeObsoleteButton(objectsForm);
+	makeFilterButton(objectsForm);
 	psWScreen->psForm->attach(objectsForm);
+	//psWScreen->psForm->attach(templbaseForm);
 	displayStatsForm();
 	triggerEvent(TRIGGER_MENU_RESEARCH_UP);
 	return true;

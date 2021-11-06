@@ -57,6 +57,8 @@ private:
 	std::vector<RESEARCH *> stats;
 	std::vector<STRUCTURE *> facilities;
 	static STRUCTURE *highlightedFacility;
+	uint16_t showTech = UINT16_MAX;
+
 };
 
 #endif // __INCLUDED_SRC_HCI_RESEARCH_INTERFACE_H__

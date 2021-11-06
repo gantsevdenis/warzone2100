@@ -2167,6 +2167,20 @@ void makeObsoleteButton(const std::shared_ptr<WIDGET> &parent)
 	obsoleteButton->move(4 + Image(IntImages, IMAGE_FDP_UP).width() + 4, STAT_SLDY);
 }
 
+void makeFilterButton(const std::shared_ptr<WIDGET> &parent)
+{
+	auto obsoleteButton = std::make_shared<MultipleChoiceButton>();
+	parent->attach(obsoleteButton);
+	obsoleteButton->id = IDSTAT_FILTER_COMPUTERTECH;
+	obsoleteButton->style |= WBUT_SECONDARY;
+	obsoleteButton->setChoice(includeRedundantDesigns);
+	obsoleteButton->setImages(false, MultipleChoiceButton::Images(Image(IntImages, IMAGE_RES_DROIDTECH), Image(IntImages, IMAGE_OBSOLETE_HIDE_UP), Image(IntImages, IMAGE_OBSOLETE_HIDE_HI)));
+	obsoleteButton->setTip(false, _("Filter stuff"));
+	obsoleteButton->setImages(true,  MultipleChoiceButton::Images(Image(IntImages, IMAGE_OBSOLETE_SHOW_UP), Image(IntImages, IMAGE_OBSOLETE_SHOW_UP), Image(IntImages, IMAGE_OBSOLETE_SHOW_HI)));
+	obsoleteButton->setTip(true, _("Don't filter stuff"));
+	obsoleteButton->move(4, STAT_SLDY);
+}
+
 /* Add the stats widgets to the widget screen */
 /* If psSelected != NULL it specifies which stat should be hilited
    psOwner specifies which object is hilighted on the object bar for this stat*/
@@ -2662,7 +2676,7 @@ int intGetResearchState()
 	if (resFree)
 	{
 		//calculate the list
-		auto researchList = fillResearchList(selectedPlayer, nonstd::nullopt, MAXRESEARCH);
+		auto researchList = fillResearchList(selectedPlayer, nonstd::nullopt, MAXRESEARCH, UINT16_MAX);
 		count = researchList.size();
 		for (int n = 0; n < researchList.size(); ++n)
 		{

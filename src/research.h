@@ -35,6 +35,18 @@ struct VIEWDATA;
 #define NO_RESEARCH_ICON 0
 //max 'research complete' console message length
 #define MAX_RESEARCH_MSG_SIZE 200
+#define SHOW_COMPUTERTECH 	1
+#define SHOW_CYBORGTECH 	2
+#define SHOW_DEFENCE 		4
+#define SHOW_DROIDTECH 		8
+#define SHOW_POWERTECH 		16
+#define SHOW_STRUCTURETECH 	32
+#define SHOW_SYSTEMTECH		64
+#define SHOW_WEAPONTECH		128
+#define SHOW_GRPACC			256
+#define SHOW_GRPDAM			512
+#define SHOW_GRPROF			1024
+#define SHOW_GRPUPG			2048
 
 //used for loading in the research stats into the appropriate list
 enum
@@ -89,7 +101,7 @@ bool loadResearch(WzConfig &ini);
 
 /*function to check what can be researched for a particular player at any one
   instant. Returns the number to research*/
-std::vector<uint16_t> fillResearchList(UDWORD playerID, nonstd::optional<UWORD> topic, UWORD limit);
+std::vector<uint16_t> fillResearchList(UDWORD playerID, nonstd::optional<UWORD> topic, UWORD limit, uint16_t showTechMask);
 
 /* process the results of a completed research topic */
 void researchResult(UDWORD researchIndex, UBYTE player, bool bDisplay, STRUCTURE *psResearchFacility, bool bTrigger);

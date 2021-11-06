@@ -88,6 +88,7 @@ enum  				  // Reticule button indecies.
 #define IDSTAT_TIMEBARSTART             16205000
 #define IDSTAT_TIMEBAREND               16205999
 #define IDSTAT_OBSOLETE_BUTTON          4406
+#define IDSTAT_FILTER_COMPUTERTECH		4407
 #define IDSTAT_PRODSTART		4600
 #define IDSTAT_PRODEND			4699
 
@@ -374,7 +375,7 @@ bool intIsRefreshing();
 void intDemolishCancel();
 
 void makeObsoleteButton(const std::shared_ptr<WIDGET> &parent);  ///< Makes a button to toggle showing obsolete items.
-
+void makeFilterButton(const std::shared_ptr<WIDGET> &parent);
 void chatDialog(int mode);
 bool isChatUp();
 bool isSecondaryWindowUp();
