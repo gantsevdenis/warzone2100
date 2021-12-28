@@ -888,7 +888,8 @@ void orderUpdateDroid(DROID *psDroid)
 		    (psDroid->action == DACTION_BUILD && psDroid->order.psObj == nullptr))
 		{
 			// finished building the current structure
-			auto lb = calcLineBuild(psDroid->order.psStats, psDroid->order.direction, psDroid->order.pos, psDroid->order.pos2);
+			debug(LOG_INFO, "recalculating lineBuild, line %i", __LINE__);
+			const auto lb = calcLineBuild(psDroid->order.psStats, psDroid->order.direction, psDroid->order.pos, psDroid->order.pos2);
 			if (lb.count <= 1)
 			{
 				// finished all the structures - done

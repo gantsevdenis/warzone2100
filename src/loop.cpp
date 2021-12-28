@@ -84,6 +84,7 @@
 #include "notifications.h"
 #include "scores.h"
 #include "clparse.h"
+#include "workerGroup.h"
 
 #include "warzoneconfig.h"
 
@@ -547,6 +548,9 @@ static void gameStateUpdate()
 
 	// update the command droids
 	cmdDroidUpdate();
+	
+	static std::vector<DROID *> builders;
+	builders.clear();
 
 	for (unsigned i = 0; i < MAX_PLAYERS; i++)
 	{
@@ -559,6 +563,11 @@ static void gameStateUpdate()
 			// Copy the next pointer - not 100% sure if the droid could get destroyed but this covers us anyway
 			psNext = psCurr->psNext;
 			droidUpdate(psCurr);
+			if (psCurr->droidType == DROID_CONSTRUCT && psCurr->group != UBYTE_MAX && psCurr->order.type == DORDER_LINEBUILD)
+			{
+				// I think this can contain dead droids after "proj_UpdateAll"
+				builders.push_back(psCurr);
+			}
 		}
 
 		for (DROID *psCurr = mission.apsDroidLists[i]; psCurr != nullptr; psCurr = psNext)
@@ -588,6 +597,13 @@ static void gameStateUpdate()
 	missionTimerUpdate();
 
 	proj_UpdateAll();
+	static uint8_t workerGroupTickCounter;
+	workerGroupTickCounter++;
+	if (workerGroupTickCounter % 8 == 0)
+	{
+		updateWorkerGroup(builders);
+	}
+	
 
 	FEATURE *psNFeat;
 	for (FEATURE *psCFeat = apsFeatureLists[0]; psCFeat; psCFeat = psNFeat)
