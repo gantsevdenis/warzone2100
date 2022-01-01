@@ -1358,6 +1358,12 @@ void orderDroidBase(DROID *psDroid, DROID_ORDER_DATA *psOrder)
 			break;
 		}
 		// move a droid to a location
+		if (psDroid->droidType == DROID_COMMAND && psOrder->type == DORDER_MOVE && psDroid->order.type == DORDER_RTR)
+		{
+			// if we are ordering a group to move, while its Commander is about to move to repair, 
+			// don't move commander itself (this mimicks the same behaviour as for non-commander units)
+			break;
+		}
 		psDroid->order = *psOrder;
 		actionDroid(psDroid, DACTION_MOVE, psOrder->pos.x, psOrder->pos.y);
 		break;
