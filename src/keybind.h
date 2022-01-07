@@ -199,6 +199,6 @@ void kf_ToggleFullscreen();
 void kf_ToggleSpecOverlays();
 
 void enableGodMode();
-
+void kf_enumDroids();
 void keybindShutdown();
 #endif // __INCLUDED_SRC_KEYBIND_H__

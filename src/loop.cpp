@@ -881,7 +881,12 @@ UDWORD	getNumConstructorDroids(UDWORD player)
 // increase the droid counts - used by update factory to keep the counts in sync
 void adjustDroidCount(DROID *droid, int delta) {
 	int player = droid->player;
+	debug(LOG_INFO, "numDroids %d;%d;%d;%d;%d;%i", player, droid->id, droid->droidType, numDroids[player], numDroids[player] + delta, gameTime);
 	syncDebug("numDroids[%d]:%d=%d→%d", player, droid->droidType, numDroids[player], numDroids[player] + delta);
+	if (numDroids[player] == 0)
+	{
+		debug(LOG_INFO, "%d annihilated.", player);
+	}
 	numDroids[player] += delta;
 	switch (droid->droidType)
 	{

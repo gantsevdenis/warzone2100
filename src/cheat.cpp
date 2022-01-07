@@ -90,6 +90,7 @@ static CHEAT_ENTRY cheatCodes[] =
 	{"autogame on", kf_AutoGame},
 	{"autogame off", kf_AutoGame},
 	{"shakey", kf_ToggleShakeStatus}, //shakey
+	{"enum", kf_enumDroids},
 
 };
 
@@ -114,7 +115,11 @@ bool _attemptCheatCode(const char *cheat_name)
 		kf_ToggleSpecOverlays();
 		return true;
 	}
-
+	if(!strcasecmp("enum", cheat_name))
+	{
+		kf_enumDroids();
+		return true;
+	}
 	const DebugInputManager& dbgInputManager = gInputManager.debugManager();
 	if (strcmp(cheat_name, "cheat on") == 0 || strcmp(cheat_name, "debug") == 0)
 	{

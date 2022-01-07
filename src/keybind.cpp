@@ -2237,7 +2237,19 @@ void	kf_ToggleMouseInvert()
 		CONPRINTF("%s", _("Vertical rotation direction: Flipped"));
 	}
 }
-
+void kf_enumDroids(void)
+{
+	for(int i = 0; i < MAX_PLAYERS; i++)
+	{
+		uint32_t count = 0;
+		for (DROID* psDroid = apsDroidLists[i]; psDroid; psDroid = psDroid->psNext)
+		{
+			debug(LOG_INFO, "enumDroids %d;%d;%d;%d;%i", i, psDroid->id, psDroid->droidType, getNumDroids(i), gameTime);
+			count++;
+		}
+		debug(LOG_INFO, "enumDroids TOTAL %d;%d", i, count);
+	}
+}
 // --------------------------------------------------------------------------
 void	kf_ToggleShakeStatus(void)
 {
