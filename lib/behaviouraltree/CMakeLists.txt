@@ -1,0 +1,6 @@
+file(GLOB HEADERS "*.h")
+file(GLOB SRC "*.cpp")
+add_library(behavioural-tree STATIC ${HEADERS} ${SRC})
+set_property(TARGET behavioural-tree PROPERTY FOLDER "lib")
+include(WZTargetConfiguration)
+WZ_TARGET_CONFIGURATION(behavioural-tree)
