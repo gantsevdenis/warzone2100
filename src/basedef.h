@@ -155,7 +155,7 @@ struct Spacetime
 static inline void setId(SIMPLE_OBJECT* psObj, uint32_t id)
 {
 	psObj->id = id;
-};
+}
 
 static inline Spacetime getSpacetime(SIMPLE_OBJECT const *psObj)
 {
