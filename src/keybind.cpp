@@ -395,7 +395,7 @@ void kf_CloneSelected(int limit)
 		if (psDroid->selected)
 		{
 			enumerateTemplates(selectedPlayer, [psDroid, &sTemplate](DROID_TEMPLATE * psTempl) {
-				if (psTempl->name.compare(psDroid->aName) == 0)
+				if (psTempl->name.compare(droidGetName(psDroid)) == 0)
 				{
 					sTemplate = psTempl;
 					return false; // stop enumerating
@@ -405,7 +405,7 @@ void kf_CloneSelected(int limit)
 
 			if (!sTemplate)
 			{
-				debug(LOG_ERROR, "Cloning vat has been destroyed. We can't find the template for this droid: %s, id:%u, type:%d!", psDroid->aName, psDroid->id, psDroid->droidType);
+				debug(LOG_ERROR, "Cloning vat has been destroyed. We can't find the template for this droid: %s, id:%u, type:%d!", droidGetName(psDroid), psDroid->id, psDroid->droidType);
 				return;
 			}
 
@@ -424,7 +424,7 @@ void kf_CloneSelected(int limit)
 					debug(LOG_ERROR, "Cloning has failed for template:%s id:%d", getID(sTemplate), sTemplate->multiPlayerID);
 				}
 			}
-			std::string msg = astringf(_("Player %u is cheating a new droid army of: %d × %s."), selectedPlayer, limit, psDroid->aName);
+			std::string msg = astringf(_("Player %u is cheating a new droid army of: %d × %s."), selectedPlayer, limit, droidGetName(psDroid));
 			sendInGameSystemMessage(msg.c_str());
 			Cheated = true;
 			audio_PlayTrack(ID_SOUND_NEXUS_LAUGH1);

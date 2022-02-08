@@ -278,7 +278,7 @@ static void recvGiftDroids(uint8_t from, uint8_t to, uint32_t droidID)
 		syncDebugDroid(psDroid, '>');
 		if (to == selectedPlayer)
 		{
-			CONPRINTF(_("%s Gives you a %s"), getPlayerName(from), psDroid->aName);
+			CONPRINTF(_("%s Gives you a %s"), getPlayerName(from), droidGetName(psDroid));
 		}
 	}
 	else
@@ -328,7 +328,7 @@ static void sendGiftDroids(uint8_t from, uint8_t to)
 		if (isTransporter(psD)
 		    && !transporterIsEmpty(psD))
 		{
-			CONPRINTF(_("Tried to give away a non-empty %s - but this is not allowed."), psD->aName);
+			CONPRINTF(_("Tried to give away a non-empty %s - but this is not allowed."), droidGetName(psD));
 			continue;
 		}
 		if (psD->selected)

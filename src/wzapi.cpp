@@ -2106,6 +2106,7 @@ bool wzapi::removeBeacon(WZAPI_PARAMS(int playerFilter))
 //--
 std::unique_ptr<const DROID> wzapi::getDroidProduction(WZAPI_PARAMS(const STRUCTURE *_psFactory))
 {
+	// JS ne modifie pas les droid retournés ici
 	const STRUCTURE *psStruct = _psFactory;
 	SCRIPT_ASSERT(nullptr, context, psStruct, "No valid structure provided");
 	int player = psStruct->player;

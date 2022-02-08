@@ -5618,7 +5618,7 @@ Writes the linked list of droids for each player to a file
 static nlohmann::json writeDroid(DROID *psCurr, bool onMission, int &counter)
 {
 	nlohmann::json droidObj = nlohmann::json::object();
-	droidObj["name"] = psCurr->aName;
+	droidObj["name"] = droidGetName(psCurr);
 	droidObj["originalBody"] = psCurr->originalBody;
 	// write common BASE_OBJECT info
 	writeSaveObjectJSON(droidObj, psCurr);

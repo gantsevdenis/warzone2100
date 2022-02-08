@@ -1759,7 +1759,7 @@ INT_RETVAL intRunWidgets()
 
 							// Send a text message to all players, notifying them of
 							// the fact that we're cheating ourselves a new droid.
-							msg = astringf(_("Player %u is cheating (debug menu) him/herself a new droid: %s."), selectedPlayer, psDroid->aName);
+							msg = astringf(_("Player %u is cheating (debug menu) him/herself a new droid: %s."), selectedPlayer, droidGetName(psDroid));
 
 							triggerEventDroidBuilt(psDroid, nullptr);
 						}

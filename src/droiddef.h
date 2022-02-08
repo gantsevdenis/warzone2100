@@ -96,6 +96,7 @@ struct DROID : public BASE_OBJECT
 
 	/// UTF-8 name of the droid. This is generated from the droid template
 	///  WARNING: This *can* be changed by the game player after creation & can be translated, do NOT rely on this being the same for everyone!
+	/// cannot delete because JS relies on this
 	char            aName[MAX_STR_LENGTH];
 	DROID_TYPE      droidType;                      ///< The type of droid
 	/** Holds the specifics for the component parts - allows damage

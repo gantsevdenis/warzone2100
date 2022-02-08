@@ -78,6 +78,7 @@
 
 // store the experience of recently recycled droids
 static std::priority_queue<int> recycled_experience[MAX_PLAYERS];
+static std::unordered_map<uint32_t, std::string> droidNames;
 
 /** Height the transporter hovers at above the terrain. */
 #define TRANSPORTER_HOVER_HEIGHT	10
@@ -310,7 +311,8 @@ DROID::DROID(uint32_t id, unsigned player)
 	, action(DACTION_NONE)
 	, actionPos(0, 0)
 {
-	memset(aName, 0, sizeof(aName));
+	droidNames.emplace(id, "");
+	debug(LOG_INFO, "added droid %i", id);
 	memset(asBits, 0, sizeof(asBits));
 	pos = Vector3i(0, 0, 0);
 	rot = Vector3i(0, 0, 0);
@@ -1665,7 +1667,7 @@ DROID *reallyBuildDroid(const DROID_TEMPLATE *pTemplate, Position pos, UDWORD pl
 	psDroid->prevSpacetime.pos = psDroid->pos;
 	psDroid->prevSpacetime.rot = psDroid->rot;
 
-	debug(LOG_LIFE, "created droid for player %d, droid = %p, id=%d (%s): position: x(%d)y(%d)z(%d)", player, static_cast<void *>(psDroid), (int)psDroid->id, psDroid->aName, psDroid->pos.x, psDroid->pos.y, psDroid->pos.z);
+	debug(LOG_LIFE, "created droid for player %d, droid = %p, id=%d (%s): position: x(%d)y(%d)z(%d)", player, static_cast<void *>(psDroid), (int)psDroid->id, droidGetName(psDroid), psDroid->pos.x, psDroid->pos.y, psDroid->pos.z);
 
 	return psDroid;
 }
@@ -2194,13 +2196,19 @@ UDWORD	getNumDroidsForLevel(uint32_t player, UDWORD level)
 
 	return count;
 }
-
+static const char empty[MAX_STR_LENGTH] = {0};
 // Get the name of a droid from it's DROID structure.
 //
 const char *droidGetName(const DROID *psDroid)
 {
 	ASSERT_NOT_NULLPTR_OR_RETURN("", psDroid);
-	return psDroid->aName;
+	auto it = droidNames.find(psDroid->id);
+	if (it == droidNames.end())
+	{
+		debug(LOG_ERROR, "no droid with such id %i;%s;%i;%i", psDroid->id, psDroid->aName, psDroid->player, psDroid->droidType);
+		return empty;
+	}
+	return droidNames.at(psDroid->id).c_str();
 }
 
 //
@@ -2210,7 +2218,14 @@ const char *droidGetName(const DROID *psDroid)
 //
 void droidSetName(DROID *psDroid, const char *pName)
 {
-	sstrcpy(psDroid->aName, pName);
+	// copy the char* to string
+	auto it = droidNames.find(psDroid->id);
+	if (it == droidNames.end())
+	{
+		debug(LOG_ERROR, "no droid with such id;newName %i;%s", psDroid->id, pName);
+		return;
+	}
+	droidNames.at(psDroid->id) = pName;
 }
 
 // ////////////////////////////////////////////////////////////////////////////
@@ -3090,7 +3105,7 @@ DROID *giftSingleDroid(DROID *psD, UDWORD to, bool electronic)
 		DROID *psNewDroid;
 
 		templateSetParts(psD, &sTemplate);	// create a template based on the droid
-		sTemplate.name = WzString::fromUtf8(psD->aName);	// copy the name across
+		sTemplate.name = WzString::fromUtf8(droidGetName(psD));	// copy the name across
 		// update score
 		if (psD->player == selectedPlayer && to != selectedPlayer && !bMultiPlayer)
 		{
