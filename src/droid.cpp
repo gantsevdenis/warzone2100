@@ -3451,3 +3451,12 @@ int droidSqDist(DROID *psDroid, BASE_OBJECT *psObj)
 	}
 	return objPosDiffSq(psDroid->pos, psObj->pos);
 }
+
+void setId(DROID *psDroid, uint32_t id)
+{
+	debug(LOG_INFO, "id gets reassigned %i;%i", psDroid->id, id);
+	droidNames.erase(psDroid->id);
+	droidNames.emplace(id, "");
+	psDroid->id = id;
+	droidSetName(psDroid, psDroid->aName);
+}
