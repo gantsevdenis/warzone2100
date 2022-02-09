@@ -5036,16 +5036,15 @@ static bool loadWzMapDroidInit(WzMap::Map &wzMap)
 			continue;
 		}
 		turnOffMultiMsg(true);
-		auto psDroid = reallyBuildDroid(psTemplate, Position(droid.position.x, droid.position.y, 0), player, false, {droid.direction, 0, 0});
+		 // hack to remove droid id zero
+		uint32_t id = (droid.id.has_value() && droid.id.value() > 0) ? droid.id.value() : 0xFEDBCA98;
+		debug(LOG_INFO, "2 loading droid;name %i;%s", droid.id.value(), droid.name.c_str());
+		auto psDroid = reallyBuildDroid(psTemplate, Position(droid.position.x, droid.position.y, 0), player, false, {droid.direction, 0, 0}, id);
 		turnOffMultiMsg(false);
 		if (psDroid == nullptr)
 		{
 			debug(LOG_ERROR, "Failed to build unit %s", droid.name.c_str());
 			continue;
-		}
-		if (droid.id.has_value())
-		{
-			setId(psDroid, droid.id.value() > 0 ? droid.id.value() : 0xFEDBCA98);  // hack to remove droid id zero
 		}
 		ASSERT(psDroid->id != 0, "Droid ID should never be zero here");
 
@@ -5449,6 +5448,7 @@ static bool loadSaveDroid(const char *pFileName, DROID **ppsCurrentDroidLists)
 		{
 			// Create fake template
 			templ.name = ini.string("name", "UNKNOWN");
+			debug(LOG_INFO, "templ.name %s", templ.name.toUtf8().c_str());
 			templ.droidType = (DROID_TYPE)ini.value("droidType").toInt();
 			templ.numWeaps = ini.value("weapons", 0).toInt();
 			ini.beginGroup("parts");	// the following is copy-pasted from loadSaveTemplate() -- fixme somehow
@@ -5463,7 +5463,8 @@ static bool loadSaveDroid(const char *pFileName, DROID **ppsCurrentDroidLists)
 			templ.asWeaps[1] = getCompFromName(COMP_WEAPON, ini.value("weapon/2", "ZNULLWEAPON").toWzString());
 			templ.asWeaps[2] = getCompFromName(COMP_WEAPON, ini.value("weapon/3", "ZNULLWEAPON").toWzString());
 			ini.endGroup();
-			psTemplate = &templ;
+			psTemplate = &templ; // name doesn't get copied?
+			debug(LOG_INFO, "psTemplate name %s", psTemplate->name.toUtf8().c_str());
 		}
 
 		// If droid is on a mission, calling with the saved position might cause an assertion. Or something like that.
@@ -5475,16 +5476,19 @@ static bool loadSaveDroid(const char *pFileName, DROID **ppsCurrentDroidLists)
 
 		/* Create the Droid */
 		turnOffMultiMsg(true);
-		psDroid = reallyBuildDroid(psTemplate, pos, player, onMission, rot);
-		ASSERT_OR_RETURN(false, psDroid != nullptr, "Failed to build unit %s", sortedList[i].second.toUtf8().c_str());
-		turnOffMultiMsg(false);
-
-		// Copy the values across
+		debug(LOG_INFO, "loading droid;name %i;%s", id, psTemplate->name.toUtf8().c_str());
 		if (id > 0)
 		{
-			setId(psDroid, id);
-			psDroid->id = id; // force correct ID, unless ID is set to eg -1, in which case we should keep new ID (useful for starting units in campaign)
+			psDroid = reallyBuildDroid(psTemplate, pos, player, onMission, rot, id);
+		} else
+		{
+			// force correct ID, unless ID is set to eg -1, in which case we should keep new ID (useful for starting units in campaign)
+			// will generate a new id
+			psDroid = reallyBuildDroid(psTemplate, pos, player, onMission, rot);
 		}
+		
+		ASSERT_OR_RETURN(false, psDroid != nullptr, "Failed to build unit %s", sortedList[i].second.toUtf8().c_str());
+		turnOffMultiMsg(false);
 		ASSERT(id != 0, "Droid ID should never be zero here");
 		// conditional check so that existing saved games don't break
 		if (ini.contains("originalBody"))
@@ -5895,16 +5899,14 @@ bool loadSaveStructure(char *pFileData, UDWORD filesize)
 			//ignore this
 			continue;
 		}
-
+		// The original code here didn't work and so the scriptwriters worked round it by using the module ID - so making it work now will screw up
+		// the scripts -so in ALL CASES overwrite the ID!
 		psStructure = buildStructureDir(psStats, psSaveStructure->x, psSaveStructure->y, DEG(psSaveStructure->direction), psSaveStructure->player, true);
 		ASSERT(psStructure, "Unable to create structure");
 		if (!psStructure)
 		{
 			continue;
 		}
-		// The original code here didn't work and so the scriptwriters worked round it by using the module ID - so making it work now will screw up
-		// the scripts -so in ALL CASES overwrite the ID!
-		setId(psStructure, psSaveStructure->id > 0 ? psSaveStructure->id : 0xFEDBCA98);  // hack to remove struct id zero
 		psStructure->periodicalDamage = psSaveStructure->periodicalDamage;
 		periodicalDamageTime = psSaveStructure->periodicalDamageStart;
 		psStructure->periodicalDamageStart = periodicalDamageTime;
@@ -5986,17 +5988,14 @@ static bool loadWzMapStructure(WzMap::Map& wzMap)
 			player = MAX_PLAYERS - 1;
 			NumberOfSkippedStructures++;
 		}
-		STRUCTURE *psStructure = buildStructureDir(psStats, structure.position.x, structure.position.y, structure.direction, player, true);
+		// The original code here didn't work and so the scriptwriters worked round it by using the module ID - so making it work now will screw up
+		// the scripts -so in ALL CASES overwrite the ID!
+		const auto id = (structure.id.has_value() && structure.id.value() > 0) ? structure.id.value() : 0xFEDBCA98;
+		STRUCTURE *psStructure = buildStructureDir(psStats, structure.position.x, structure.position.y, structure.direction, player, true, id);
 		if (psStructure == nullptr)
 		{
 			debug(LOG_ERROR, "Structure %s couldn't be built (probably on top of another structure).", structure.name.c_str());
 			continue;
-		}
-		if (structure.id.has_value())
-		{
-			// The original code here didn't work and so the scriptwriters worked round it by using the module ID - so making it work now will screw up
-			// the scripts -so in ALL CASES overwrite the ID!
-			setId(psStructure, structure.id.value() > 0 ? structure.id.value() : 0xFEDBCA98);  // hack to remove struct id zero
 		}
 		if (structure.modules > 0)
 		{
@@ -6091,18 +6090,17 @@ static bool loadSaveStructure2(const char *pFileName, STRUCTURE **ppList)
 			ini.endGroup();
 			continue; // skip it
 		}
-		psStructure = buildStructureDir(psStats, pos.x, pos.y, rot.direction, player, true);
+		if (id <= 0)
+		{
+			id = generateSynchronisedObjectId();
+		}
+		psStructure = buildStructureDir(psStats, pos.x, pos.y, rot.direction, player, true, id);
 		ASSERT(psStructure, "Unable to create structure");
 		if (!psStructure)
 		{
 			ini.endGroup();
 			continue;
 		}
-		if (id > 0)
-		{
-			setId(psStructure, id);   // force correct ID
-		}
-
 		// common BASE_OBJECT info
 		loadSaveObject(ini, psStructure);
 
@@ -6636,7 +6634,7 @@ bool loadSaveFeature(char *pFileData, UDWORD filesize)
 			continue;
 		}
 		//create the Feature
-		pFeature = buildFeature(psStats, psSaveFeature->x, psSaveFeature->y, true);
+		pFeature = buildFeature(psStats, psSaveFeature->x, psSaveFeature->y, true, psSaveFeature->id);
 		if (!pFeature)
 		{
 			debug(LOG_ERROR, "Unable to create feature %s", psSaveFeature->name);
@@ -6646,8 +6644,6 @@ bool loadSaveFeature(char *pFileData, UDWORD filesize)
 		{
 			scriptSetDerrickPos(pFeature->pos.x, pFeature->pos.y);
 		}
-		//restore values
-		setId(pFeature, psSaveFeature->id);
 		pFeature->rot.direction = DEG(psSaveFeature->direction);
 		pFeature->periodicalDamage = psSaveFeature->periodicalDamage;
 		if (psHeader->version >= VERSION_14)
@@ -6678,8 +6674,16 @@ static bool loadWzMapFeature(WzMap::Map &wzMap)
 			debug(LOG_ERROR, "Feature type \"%s\" unknown", feature.name.c_str());
 			continue;  // ignore this
 		}
-		// Create the Feature
-		auto pFeature = buildFeature(psStats, feature.position.x, feature.position.y, true);
+		FEATURE *pFeature = nullptr;
+		//restore values && create Feature
+		if (feature.id.has_value())
+		{
+			pFeature = buildFeature(psStats, feature.position.x, feature.position.y, true, feature.id.value());
+		} else
+		{
+			pFeature = buildFeature(psStats, feature.position.x, feature.position.y, true);
+		}
+
 		if (!pFeature)
 		{
 			debug(LOG_ERROR, "Unable to create feature %s", feature.name.c_str());
@@ -6688,15 +6692,6 @@ static bool loadWzMapFeature(WzMap::Map &wzMap)
 		if (pFeature->psStats->subType == FEAT_OIL_RESOURCE)
 		{
 			scriptSetDerrickPos(pFeature->pos.x, pFeature->pos.y);
-		}
-		//restore values
-		if (feature.id.has_value())
-		{
-			setId(pFeature, feature.id.value());
-		}
-		else
-		{
-			pFeature->id = generateSynchronisedObjectId();
 		}
 		pFeature->rot.direction = feature.direction;
 		pFeature->player = (feature.player.has_value()) ? feature.player.value() : PLAYER_FEATURE;
@@ -6744,8 +6739,16 @@ bool loadSaveFeature2(const char *pFileName)
 			//ignore this
 			continue;
 		}
-		//create the Feature
-		pFeature = buildFeature(psStats, pos.x, pos.y, true);
+		//restore values
+		int id = ini.value("id", -1).toInt();
+		if (id > 0)
+		{
+			pFeature = buildFeature(psStats, pos.x, pos.y, true, id);
+		}
+		else
+		{
+			pFeature = buildFeature(psStats, pos.x, pos.y, true);
+		}
 		if (!pFeature)
 		{
 			debug(LOG_ERROR, "Unable to create feature %s", name.toUtf8().c_str());
@@ -6754,16 +6757,6 @@ bool loadSaveFeature2(const char *pFileName)
 		if (pFeature->psStats->subType == FEAT_OIL_RESOURCE)
 		{
 			scriptSetDerrickPos(pFeature->pos.x, pFeature->pos.y);
-		}
-		//restore values
-		int id = ini.value("id", -1).toInt();
-		if (id > 0)
-		{
-			setId(pFeature, id);
-		}
-		else
-		{
-			setId(pFeature, generateSynchronisedObjectId());
 		}
 		pFeature->rot = ini.vector3i("rotation");
 		pFeature->player = ini.value("player", PLAYER_FEATURE).toInt();

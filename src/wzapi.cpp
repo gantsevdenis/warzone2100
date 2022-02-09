@@ -2119,11 +2119,11 @@ std::unique_ptr<const DROID> wzapi::getDroidProduction(WZAPI_PARAMS(const STRUCT
 	{
 		return nullptr;
 	}
-	DROID *psDroid = new DROID(0, player);
+	DROID *psDroid = new DROID(0, player, getStatsName(psTemp));
 	psDroid->pos = psStruct->pos;
 	psDroid->rot = psStruct->rot;
 	psDroid->experience = 0;
-	droidSetName(psDroid, getStatsName(psTemp));
+	//droidSetName(psDroid, );
 	droidSetBits(psTemp, psDroid);
 	psDroid->weight = calcDroidWeight(psTemp);
 	psDroid->baseSpeed = calcDroidBaseSpeed(psTemp, psDroid->weight, player);

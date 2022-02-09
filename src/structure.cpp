@@ -1303,10 +1303,15 @@ void alignStructure(STRUCTURE *psBuilding)
 /*Builds an instance of a Structure - the x/y passed in are in world coords. */
 STRUCTURE *buildStructure(STRUCTURE_STATS *pStructureType, UDWORD x, UDWORD y, UDWORD player, bool FromSave)
 {
-	return buildStructureDir(pStructureType, x, y, 0, player, FromSave);
+	const auto id = generateSynchronisedObjectId();
+	return buildStructureDir(pStructureType, x, y, 0, player, FromSave, id);
 }
-
 STRUCTURE *buildStructureDir(STRUCTURE_STATS *pStructureType, UDWORD x, UDWORD y, uint16_t direction, UDWORD player, bool FromSave)
+{
+	const auto id = generateSynchronisedObjectId();
+	return buildStructureDir(pStructureType, x, y, direction, player, FromSave, id);
+}
+STRUCTURE *buildStructureDir(STRUCTURE_STATS *pStructureType, UDWORD x, UDWORD y, uint16_t direction, UDWORD player, bool FromSave, uint32_t id)
 {
 	STRUCTURE *psBuilding = nullptr;
 	const Vector2i size = pStructureType->size(direction);
@@ -1361,7 +1366,7 @@ STRUCTURE *buildStructureDir(STRUCTURE_STATS *pStructureType, UDWORD x, UDWORD y
 		}
 
 		// allocate memory for and initialize a structure object
-		psBuilding = new STRUCTURE(generateSynchronisedObjectId(), player);
+		psBuilding = new STRUCTURE(id, player);
 		if (psBuilding == nullptr)
 		{
 			return nullptr;

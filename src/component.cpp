@@ -805,7 +805,7 @@ void displayComponentButtonTemplate(DROID_TEMPLATE *psTemplate, const Vector3i *
 	// Decide how to sort it.
 	leftFirst = angleDelta(DEG(Rotation->y)) < 0;
 
-	DROID Droid(0, selectedPlayer);
+	DROID Droid(0, selectedPlayer, getStatsName(psTemplate));
 	memset(Droid.asBits, 0, sizeof(Droid.asBits));
 	droidSetBits(psTemplate, &Droid);
 

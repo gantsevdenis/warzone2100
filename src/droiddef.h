@@ -91,13 +91,13 @@ struct STRUCTURE;
 
 struct DROID : public BASE_OBJECT
 {
-	DROID(uint32_t id, unsigned player);
+	DROID(uint32_t id, unsigned player, const char *name);
 	~DROID();
 
 	/// UTF-8 name of the droid. This is generated from the droid template
 	///  WARNING: This *can* be changed by the game player after creation & can be translated, do NOT rely on this being the same for everyone!
 	/// cannot delete because JS relies on this
-	char            aName[MAX_STR_LENGTH];
+	//char            aName[MAX_STR_LENGTH];
 	DROID_TYPE      droidType;                      ///< The type of droid
 	/** Holds the specifics for the component parts - allows damage
 	 *  per part to be calculated. Indexed by COMPONENT_TYPE.

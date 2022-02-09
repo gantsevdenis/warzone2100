@@ -300,7 +300,7 @@ int32_t droidDamage(DROID *psDroid, unsigned damage, WEAPON_CLASS weaponClass, W
 	return relativeDamage;
 }
 
-DROID::DROID(uint32_t id, unsigned player)
+DROID::DROID(uint32_t id, unsigned player, const char *name)
 	: BASE_OBJECT(OBJ_DROID, id, player)
 	, droidType(DROID_ANY)
 	, psGroup(nullptr)
@@ -311,8 +311,8 @@ DROID::DROID(uint32_t id, unsigned player)
 	, action(DACTION_NONE)
 	, actionPos(0, 0)
 {
-	droidNames.emplace(id, "");
-	debug(LOG_INFO, "added droid %i", id);
+	droidNames.emplace(id, std::string(name));
+	debug(LOG_INFO, "created %i;%s", id, name);
 	memset(asBits, 0, sizeof(asBits));
 	pos = Vector3i(0, 0, 0);
 	rot = Vector3i(0, 0, 0);
@@ -961,11 +961,12 @@ DroidStartBuild droidStartBuild(DROID *psDroid)
 			return DroidStartBuildPending;
 		}
 		//ok to build
-		psStruct = buildStructureDir(psStructStat, psDroid->order.pos.x, psDroid->order.pos.y, psDroid->order.direction, psDroid->player, false);
+		const auto id = generateSynchronisedObjectId();
+		psStruct = buildStructureDir(psStructStat, psDroid->order.pos.x, psDroid->order.pos.y, psDroid->order.direction, psDroid->player, false, id);
 		if (!psStruct)
 		{
 			cancelBuild(psDroid);
-			objTrace(psDroid->id, "DroidStartBuildFailed: buildStructureDir failed");
+			objTrace(psDroid->id, "DroidStartBuildFailed: buildStructure failed");
 			return DroidStartBuildFailed;
 		}
 		psStruct->body = (psStruct->body + 9) / 10;  // Structures start at 10% health. Round up.
@@ -1564,16 +1565,15 @@ UDWORD calcDroidPower(const DROID *psDroid)
 	return calcPower(psDroid);
 }
 
-//Builds an instance of a Droid - the x/y passed in are in world coords.
-DROID *reallyBuildDroid(const DROID_TEMPLATE *pTemplate, Position pos, UDWORD player, bool onMission, Rotation rot)
+DROID *reallyBuildDroid(const DROID_TEMPLATE *pTemplate, Position pos, UDWORD player, bool onMission, Rotation rot, uint32_t id)
 {
-	// Don't use this assertion in single player, since droids can finish building while on an away mission
+// Don't use this assertion in single player, since droids can finish building while on an away mission
 	ASSERT(!bMultiPlayer || worldOnMap(pos.x, pos.y), "the build locations are not on the map");
 
 	ASSERT_OR_RETURN(nullptr, player < MAX_PLAYERS, "Invalid player: %" PRIu32 "", player);
 
-	DROID *psDroid = new DROID(generateSynchronisedObjectId(), player);
-	droidSetName(psDroid, getStatsName(pTemplate));
+	DROID *psDroid = new DROID(id, player, getStatsName(pTemplate));
+	//droidSetName(psDroid, );
 
 	// Set the droids type
 	psDroid->droidType = droidTemplateType(pTemplate);  // Is set again later to the same thing, in droidSetBits.
@@ -1670,6 +1670,12 @@ DROID *reallyBuildDroid(const DROID_TEMPLATE *pTemplate, Position pos, UDWORD pl
 	debug(LOG_LIFE, "created droid for player %d, droid = %p, id=%d (%s): position: x(%d)y(%d)z(%d)", player, static_cast<void *>(psDroid), (int)psDroid->id, droidGetName(psDroid), psDroid->pos.x, psDroid->pos.y, psDroid->pos.z);
 
 	return psDroid;
+}
+//Builds an instance of a Droid - the x/y passed in are in world coords.
+DROID *reallyBuildDroid(const DROID_TEMPLATE *pTemplate, Position pos, UDWORD player, bool onMission, Rotation rot)
+{
+	const auto id = generateSynchronisedObjectId();
+	return reallyBuildDroid(pTemplate, pos, player, onMission, rot, id);
 }
 
 DROID *buildDroid(DROID_TEMPLATE *pTemplate, UDWORD x, UDWORD y, UDWORD player, bool onMission, const INITIAL_DROID_ORDERS *initialOrders, Rotation rot)
@@ -2205,10 +2211,14 @@ const char *droidGetName(const DROID *psDroid)
 	auto it = droidNames.find(psDroid->id);
 	if (it == droidNames.end())
 	{
-		debug(LOG_ERROR, "no droid with such id %i;%s;%i;%i", psDroid->id, psDroid->aName, psDroid->player, psDroid->droidType);
+		debug(LOG_ERROR, "no droid with such id %i;%s;%i;%i", psDroid->id, droidGetName(psDroid), psDroid->player, psDroid->droidType);
 		return empty;
 	}
-	return droidNames.at(psDroid->id).c_str();
+	if (droidNames[psDroid->id].empty())
+	{
+		debug(LOG_ERROR, "droid name empty %i", psDroid->id);
+	}
+	return droidNames[psDroid->id].c_str();
 }
 
 //
@@ -2225,7 +2235,8 @@ void droidSetName(DROID *psDroid, const char *pName)
 		debug(LOG_ERROR, "no droid with such id;newName %i;%s", psDroid->id, pName);
 		return;
 	}
-	droidNames.at(psDroid->id) = pName;
+	debug(LOG_INFO, "droid renamed to;was;id %s;%s;%i", pName, droidGetName(psDroid), psDroid->id);
+	droidNames.at(psDroid->id) = std::string(pName);
 }
 
 // ////////////////////////////////////////////////////////////////////////////
@@ -3452,11 +3463,13 @@ int droidSqDist(DROID *psDroid, BASE_OBJECT *psObj)
 	return objPosDiffSq(psDroid->pos, psObj->pos);
 }
 
-void setId(DROID *psDroid, uint32_t id)
+/*void setId(DROID *psDroid, uint32_t id)
 {
 	debug(LOG_INFO, "id gets reassigned %i;%i", psDroid->id, id);
 	droidNames.erase(psDroid->id);
 	droidNames.emplace(id, "");
+	const auto name = droidGetName(psDroid);
 	psDroid->id = id;
-	droidSetName(psDroid, psDroid->aName);
+	droidSetName(psDroid, name);
 }
+*/
