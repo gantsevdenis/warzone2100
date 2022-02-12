@@ -79,6 +79,7 @@
 #include "input/manager.h"
 #include "input/keyconfig.h"
 #include "mapgrid.h"
+#include "template.h"
 
 InputManager gInputManager;
 KeyFunctionConfiguration gKeyFuncConfig;
@@ -1591,6 +1592,7 @@ void AddDerrickBurningMessage()
 static void printDroidClickInfo(DROID *psDroid)
 {
 	const DebugInputManager& dbgInputManager = gInputManager.debugManager();
+	//debug(LOG_INFO, "show template name %s", droidTemplateGetName(psDroid->player, psDroid->multiPlayerID).toUtf8().c_str());
 	if (dbgInputManager.debugMappingsAllowed()) // cheating on, so output debug info
 	{
 		console("%s - Hitpoints %d/%d - ID %d - experience %f, %s - order %s - action %s - sensor range %hu - ECM %u - pitch %.0f - frust %u - kills %d",
@@ -1620,6 +1622,7 @@ static void dealWithLMBDroid(DROID *psDroid, SELECTION_TYPE selection)
 
 	if (!aiCheckAlliances(selectedPlayer, psDroid->player))
 	{
+		debug(LOG_INFO, "showing enemy info droid.");
 		memset(DROIDDOING, 0x0 , sizeof(DROIDDOING)); // take over the other players droid by debug menu.
 		/* We've clicked on enemy droid */
 		const DebugInputManager& dbgInputManager = gInputManager.debugManager();
@@ -1781,6 +1784,7 @@ static void dealWithLMBStructure(STRUCTURE *psStructure, SELECTION_TYPE selectio
 
 	if (selectedPlayer < MAX_PLAYERS && !aiCheckAlliances(psStructure->player, selectedPlayer))
 	{
+		debug(LOG_INFO, "showing enemy info structure.");
 		/* We've clicked on an enemy building */
 		const DebugInputManager& dbgInputManager = gInputManager.debugManager();
 		if (dbgInputManager.debugMappingsAllowed())

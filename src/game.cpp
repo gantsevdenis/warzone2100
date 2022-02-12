@@ -5036,10 +5036,14 @@ static bool loadWzMapDroidInit(WzMap::Map &wzMap)
 			continue;
 		}
 		turnOffMultiMsg(true);
-		 // hack to remove droid id zero
-		uint32_t id = (droid.id.has_value() && droid.id.value() > 0) ? droid.id.value() : 0xFEDBCA98;
-		debug(LOG_INFO, "2 loading droid;name %i;%s", droid.id.value(), droid.name.c_str());
-		auto psDroid = reallyBuildDroid(psTemplate, Position(droid.position.x, droid.position.y, 0), player, false, {droid.direction, 0, 0}, id);
+		DROID *psDroid = nullptr;
+		if (droid.id.has_value() && droid.id.value() > 0)
+		{
+			psDroid = reallyBuildDroid(psTemplate, Position(droid.position.x, droid.position.y, 0), player, false, {droid.direction, 0, 0}, droid.id.value());
+		} else
+		{
+			psDroid = reallyBuildDroid(psTemplate, Position(droid.position.x, droid.position.y, 0), player, false, {droid.direction, 0, 0});
+		}
 		turnOffMultiMsg(false);
 		if (psDroid == nullptr)
 		{
@@ -5448,7 +5452,7 @@ static bool loadSaveDroid(const char *pFileName, DROID **ppsCurrentDroidLists)
 		{
 			// Create fake template
 			templ.name = ini.string("name", "UNKNOWN");
-			debug(LOG_INFO, "templ.name %s", templ.name.toUtf8().c_str());
+			//debug(LOG_INFO, "templ.name %s", templ.name.toUtf8().c_str());
 			templ.droidType = (DROID_TYPE)ini.value("droidType").toInt();
 			templ.numWeaps = ini.value("weapons", 0).toInt();
 			ini.beginGroup("parts");	// the following is copy-pasted from loadSaveTemplate() -- fixme somehow
@@ -5464,7 +5468,7 @@ static bool loadSaveDroid(const char *pFileName, DROID **ppsCurrentDroidLists)
 			templ.asWeaps[2] = getCompFromName(COMP_WEAPON, ini.value("weapon/3", "ZNULLWEAPON").toWzString());
 			ini.endGroup();
 			psTemplate = &templ; // name doesn't get copied?
-			debug(LOG_INFO, "psTemplate name %s", psTemplate->name.toUtf8().c_str());
+			//debug(LOG_INFO, "psTemplate name %s", psTemplate->name.toUtf8().c_str());
 		}
 
 		// If droid is on a mission, calling with the saved position might cause an assertion. Or something like that.
@@ -5476,13 +5480,13 @@ static bool loadSaveDroid(const char *pFileName, DROID **ppsCurrentDroidLists)
 
 		/* Create the Droid */
 		turnOffMultiMsg(true);
-		debug(LOG_INFO, "loading droid;name %i;%s", id, psTemplate->name.toUtf8().c_str());
+		debug(LOG_INFO, "loading droid;name;filename %i;%s;%s", id, psTemplate->name.toUtf8().c_str(), pFileName);
+		// force correct ID, unless ID is set to eg -1, in which case we should keep new ID (useful for starting units in campaign)
 		if (id > 0)
 		{
 			psDroid = reallyBuildDroid(psTemplate, pos, player, onMission, rot, id);
 		} else
 		{
-			// force correct ID, unless ID is set to eg -1, in which case we should keep new ID (useful for starting units in campaign)
 			// will generate a new id
 			psDroid = reallyBuildDroid(psTemplate, pos, player, onMission, rot);
 		}
@@ -5990,8 +5994,15 @@ static bool loadWzMapStructure(WzMap::Map& wzMap)
 		}
 		// The original code here didn't work and so the scriptwriters worked round it by using the module ID - so making it work now will screw up
 		// the scripts -so in ALL CASES overwrite the ID!
-		const auto id = (structure.id.has_value() && structure.id.value() > 0) ? structure.id.value() : 0xFEDBCA98;
-		STRUCTURE *psStructure = buildStructureDir(psStats, structure.position.x, structure.position.y, structure.direction, player, true, id);
+		STRUCTURE *psStructure = nullptr;
+		if (structure.id.has_value() && structure.id.value() > 0)
+		{
+			psStructure = buildStructureDir(psStats, structure.position.x, structure.position.y, structure.direction, player, true, structure.id.value());
+		} else
+		{
+			// generate new synchronised id
+			psStructure = buildStructureDir(psStats, structure.position.x, structure.position.y, structure.direction, player, true);
+		}
 		if (psStructure == nullptr)
 		{
 			debug(LOG_ERROR, "Structure %s couldn't be built (probably on top of another structure).", structure.name.c_str());

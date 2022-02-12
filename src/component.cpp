@@ -804,8 +804,8 @@ void displayComponentButtonTemplate(DROID_TEMPLATE *psTemplate, const Vector3i *
 
 	// Decide how to sort it.
 	leftFirst = angleDelta(DEG(Rotation->y)) < 0;
-
-	DROID Droid(0, selectedPlayer, getStatsName(psTemplate));
+	// FIXME ?: this gets called with same data, > 600 times per second
+	DROID Droid(0, selectedPlayer, getStatsName(psTemplate), psTemplate->multiPlayerID);
 	memset(Droid.asBits, 0, sizeof(Droid.asBits));
 	droidSetBits(psTemplate, &Droid);
 

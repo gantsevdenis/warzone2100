@@ -432,6 +432,7 @@ bool recvDroid(NETQUEUE queue)
 
 	// Create that droid on this machine.
 	const auto r = Rotation();
+	//addTemplate(player, pT);
 	psDroid = reallyBuildDroid(pT, pos, player, false, r, id);
 
 	// If we were able to build the droid set it up

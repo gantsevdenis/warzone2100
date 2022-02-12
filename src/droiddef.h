@@ -53,6 +53,8 @@
 
 typedef std::vector<DROID_ORDER_DATA> OrderList;
 
+typedef uint32_t TemplateHash_t;
+
 struct DROID_TEMPLATE : public BASE_STATS
 {
 	DROID_TEMPLATE();
@@ -71,6 +73,8 @@ struct DROID_TEMPLATE : public BASE_STATS
 	uint32_t        asWeaps[MAX_WEAPONS];       ///< weapon indices
 	DROID_TYPE      droidType;                  ///< The type of droid
 	UDWORD          multiPlayerID;              ///< multiplayer unique descriptor(cant use id's for templates). Used for save games as well now - AB 29/10/98
+	// GCC and Clang should have this __uint128_t
+	TemplateHash_t 	designHash;					///< unique hash for its designable components
 	bool            prefab;                     ///< Not player designed, not saved, never delete or change
 	bool            stored;                     ///< Stored template
 	bool            enabled;                    ///< Has been enabled
@@ -89,11 +93,14 @@ static inline DROID_TEMPLATE const *castDroidTemplate(BASE_STATS const *stats)
 class DROID_GROUP;
 struct STRUCTURE;
 
+
 struct DROID : public BASE_OBJECT
 {
-	DROID(uint32_t id, unsigned player, const char *name);
+	DROID(uint32_t id, unsigned player, const char *name, UDWORD multiPlayerID);
 	~DROID();
-
+	
+	TemplateHash_t          designHash;					///< keep reference to it's original template
+	
 	/// UTF-8 name of the droid. This is generated from the droid template
 	///  WARNING: This *can* be changed by the game player after creation & can be translated, do NOT rely on this being the same for everyone!
 	/// cannot delete because JS relies on this
@@ -124,6 +131,7 @@ struct DROID : public BASE_OBJECT
 	unsigned        listPendingBegin;               ///< Index of first order which will not be erased by a pending order. After all messages are processed, the orders in the range [listPendingBegin; listPendingEnd - 1] will remain.
 	/* Order data */
 	DROID_ORDER_DATA order;
+
 
 #ifdef DEBUG
 	// these are to help tracking down dangling pointers

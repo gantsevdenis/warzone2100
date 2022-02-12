@@ -300,7 +300,7 @@ int32_t droidDamage(DROID *psDroid, unsigned damage, WEAPON_CLASS weaponClass, W
 	return relativeDamage;
 }
 
-DROID::DROID(uint32_t id, unsigned player, const char *name)
+DROID::DROID(uint32_t id, unsigned player, const char *name, UDWORD multiPlayerID)
 	: BASE_OBJECT(OBJ_DROID, id, player)
 	, droidType(DROID_ANY)
 	, psGroup(nullptr)
@@ -310,9 +310,10 @@ DROID::DROID(uint32_t id, unsigned player, const char *name)
 	, secondaryOrderPendingCount(0)
 	, action(DACTION_NONE)
 	, actionPos(0, 0)
+
 {
 	droidNames.emplace(id, std::string(name));
-	debug(LOG_INFO, "created %i;%s", id, name);
+	//debug(LOG_INFO, "created %i;%s;%i", id, name, multiPlayerID);
 	memset(asBits, 0, sizeof(asBits));
 	pos = Vector3i(0, 0, 0);
 	rot = Vector3i(0, 0, 0);
@@ -1572,7 +1573,8 @@ DROID *reallyBuildDroid(const DROID_TEMPLATE *pTemplate, Position pos, UDWORD pl
 
 	ASSERT_OR_RETURN(nullptr, player < MAX_PLAYERS, "Invalid player: %" PRIu32 "", player);
 
-	DROID *psDroid = new DROID(id, player, getStatsName(pTemplate));
+	DROID *psDroid = new DROID(id, player, getStatsName(pTemplate), pTemplate->multiPlayerID);
+
 	//droidSetName(psDroid, );
 
 	// Set the droids type

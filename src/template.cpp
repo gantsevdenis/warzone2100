@@ -38,6 +38,7 @@
 #include "multiplay.h"
 #include "projectile.h"
 #include "main.h"
+#include <unordered_set>
 
 // Template storage
 std::map<UDWORD, std::unique_ptr<DROID_TEMPLATE>> droidTemplates[MAX_PLAYERS];
@@ -49,6 +50,19 @@ std::vector<std::unique_ptr<DROID_TEMPLATE>> replacedDroidTemplates[MAX_PLAYERS]
 bool allowDesign = true;
 bool includeRedundantDesigns = false;
 bool playerBuiltHQ = false;
+
+const WzString& droidTemplateGetName(int player, UDWORD multiplayerId)
+{
+	static const WzString empty("");
+	auto it = droidTemplates[player].find(multiplayerId);
+	if (it == droidTemplates[player].end())
+	{
+		debug(LOG_ERROR, "no template name: multiplayerId; %i;%i", multiplayerId, player);
+		return empty;
+	}
+	return droidTemplates[player].at(multiplayerId)->name;
+}
+
 
 
 static bool researchedItem(const DROID_TEMPLATE* /*psCurr*/, int player, COMPONENT_TYPE partIndex, int part, bool allowZero, bool allowRedundant)
@@ -140,6 +154,142 @@ bool droidTemplate_LoadWeapByName(size_t destIndex, const WzString &name, DROID_
 	return true;
 }
 
+#define DROID_TYPE_OFFSET 72
+#define COMP_BODY_OFFSET 64
+#define COMP_BRAIN_OFFSET 56
+#define COMP_PROPULSION_OFFSET 48
+#define COMP_ECM_OFFSET 40
+#define COMP_CONSTRUCT_OFFSET 32
+#define COMP_SENSOR_OFFSET 24
+#define COMP_WEAP0_OFFSET 16
+#define COMP_WEAP1_OFFSET 8
+#define COMP_WEAP2_OFFSET 0
+#if 0
+uint8_t inline getCompBody(TemplateHash_t templateHash)
+{
+	return (templateHash >> COMP_BODY_OFFSET) & UINT8_MAX;
+}
+
+uint8_t inline getCompPropulsion(TemplateHash_t templateHash)
+{
+	return (templateHash >> COMP_PROPULSION_OFFSET) & UINT8_MAX;
+}
+
+uint8_t inline getCompSensor(TemplateHash_t templateHash)
+{
+	return (templateHash >> COMP_SENSOR_OFFSET) & UINT8_MAX;
+}
+
+uint8_t inline getComWeapon0(TemplateHash_t templateHash)
+{
+	return (templateHash >> COMP_WEAP0_OFFSET) & UINT8_MAX;
+}
+
+uint8_t inline getComWeapon1(TemplateHash_t templateHash)
+{
+	return (templateHash >> COMP_WEAP1_OFFSET) & UINT8_MAX;
+}
+
+uint8_t inline getComWeapon2(TemplateHash_t templateHash)
+{
+	return (templateHash >> COMP_WEAP2_OFFSET) & UINT8_MAX;
+}
+#endif
+static std::unordered_set<TemplateHash_t> knownDesignHashes;
+
+static bool addDesignHash(const DROID_TEMPLATE &design)
+{
+	auto it = knownDesignHashes.find(design.designHash);
+	if (it == knownDesignHashes.end())
+	{
+		knownDesignHashes.emplace(design.designHash);
+		return true;
+	}
+	return false;
+}
+
+WZ_DECL_PURE
+static TemplateHash_t hashTemplate(const DROID_TEMPLATE &design)
+{
+	uint32_t crc = crcSum(0, &design.asParts[COMP_BODY], 1);
+	crc = crcSum(crc, &design.asParts[COMP_BRAIN],		 1);
+	crc = crcSum(crc, &design.asParts[COMP_PROPULSION],  1);
+	crc = crcSum(crc, &design.asParts[COMP_ECM], 		 1);
+	crc = crcSum(crc, &design.asParts[COMP_SENSOR], 	 1);
+	crc = crcSum(crc, &design.asParts[COMP_CONSTRUCT], 	 1);
+	crc = crcSum(crc, &design.asWeaps[0], 				 sizeof(uint32_t));
+	crc = crcSum(crc, &design.asWeaps[1], 				 sizeof(uint32_t));
+	crc = crcSum(crc, &design.asWeaps[2], 				 sizeof(uint32_t));
+	crc = crcSum(crc, &design.droidType,  				 sizeof(DROID_TYPE));
+	return crc;
+}
+
+#if 0
+static TemplateHash_t calcDesignHash(const DROID_TEMPLATE &design)
+{
+	TemplateHash_t templateHash = 0;
+	// maybe not really needed?
+	templateHash |= (static_cast<TemplateHash_t>(design.droidType) << DROID_TYPE_OFFSET);
+	templateHash |= (static_cast<TemplateHash_t>(design.asParts[COMP_BODY]) << COMP_BODY_OFFSET);
+	templateHash |= (static_cast<TemplateHash_t>(design.asParts[COMP_BRAIN]) << COMP_BODY_OFFSET);
+	templateHash |= (static_cast<TemplateHash_t>(design.asParts[COMP_PROPULSION]) << COMP_PROPULSION_OFFSET);
+	// we don't want template with ZNULLREPAIR to be treated differently from AUTOREPAIR
+	// because that's not something player can change in its design window
+	templateHash |= static_cast<TemplateHash_t>(design.asParts[COMP_ECM]) << COMP_SENSOR_OFFSET;
+	templateHash |= static_cast<TemplateHash_t>(design.asParts[COMP_SENSOR]) << COMP_SENSOR_OFFSET;
+	templateHash |= static_cast<TemplateHash_t>(design.asParts[COMP_CONSTRUCT]) << COMP_SENSOR_OFFSET;
+	if (design.asParts[COMP_ECM] != 0)
+	{
+		if (design.asParts[COMP_CONSTRUCT] != 0 || design.asParts[COMP_SENSOR] != 0)
+		{
+			debug(LOG_ERROR, "unhandled case 1!");
+			return true;
+		}
+		templateHash |= static_cast<TemplateHash_t>(design.asParts[COMP_ECM]) << COMP_SENSOR_OFFSET;
+
+	} else if (design.asParts[COMP_SENSOR] != 0)
+	{
+		if (design.asParts[COMP_CONSTRUCT] != 0)
+		{
+			debug(LOG_ERROR, "unhandled case 2! %s;%u;%u", design.name.toUtf8().c_str(),design.asParts[COMP_SENSOR], design.asParts[COMP_CONSTRUCT]);
+			return true;
+		}
+		templateHash |= static_cast<TemplateHash_t>(design.asParts[COMP_SENSOR]) << COMP_SENSOR_OFFSET;
+
+	} else
+	{
+		templateHash |= static_cast<TemplateHash_t>(design.asParts[COMP_CONSTRUCT]) << COMP_SENSOR_OFFSET;
+	}
+	templateHash |= (static_cast<TemplateHash_t>(design.asWeaps[0]) << COMP_WEAP0_OFFSET);
+	templateHash |= (static_cast<TemplateHash_t>(design.asWeaps[1]) << COMP_WEAP1_OFFSET);
+	templateHash |= (static_cast<TemplateHash_t>(design.asWeaps[2]) << COMP_WEAP2_OFFSET);
+
+	//debug(LOG_INFO, "template;hash %s", design.name.toUtf8().c_str());
+
+	if (getCompBody(templateHash) != design.asParts[COMP_BODY])
+	{
+		debug(LOG_ERROR, "%u;%u", getCompBody(templateHash), design.asParts[COMP_BODY]);
+	}
+	if (getCompPropulsion(templateHash) != design.asParts[COMP_PROPULSION])
+	{
+		debug(LOG_ERROR, "%u;%u", getCompPropulsion(templateHash), design.asParts[COMP_PROPULSION]);
+	}
+	if (getComWeapon0(templateHash) != design.asWeaps[0])
+	{
+		debug(LOG_ERROR, "%u;%u", getComWeapon0(templateHash), design.asWeaps[0]);
+	}
+	if (getComWeapon1(templateHash) != design.asWeaps[1])
+	{
+		debug(LOG_ERROR, "%u;%u", getComWeapon1(templateHash), design.asWeaps[1]);
+	}
+	if (getComWeapon2(templateHash) != design.asWeaps[2])
+	{
+		debug(LOG_ERROR, "%u;%u", getComWeapon2(templateHash), design.asWeaps[2]);
+	}
+	return templateHash;
+}
+#endif
+
 bool loadTemplateCommon(WzConfig &ini, DROID_TEMPLATE &outputTemplate)
 {
 	DROID_TEMPLATE &design = outputTemplate;
@@ -206,7 +356,7 @@ bool loadTemplateCommon(WzConfig &ini, DROID_TEMPLATE &outputTemplate)
 	{
 		ASSERT(false, "No such droid type \"%s\" for %s", droidType.toUtf8().c_str(), getID(&design));
 	}
-
+	
 	if (!droidTemplate_LoadPartByName(COMP_BODY, ini.value("body").toWzString(), design)) return false;
 	if (!droidTemplate_LoadPartByName(COMP_BRAIN, ini.value("brain", WzString("ZNULLBRAIN")).toWzString(), design)) return false;
 	if (!droidTemplate_LoadPartByName(COMP_PROPULSION, ini.value("propulsion", WzString("ZNULLPROP")).toWzString(), design)) return false;
@@ -214,16 +364,18 @@ bool loadTemplateCommon(WzConfig &ini, DROID_TEMPLATE &outputTemplate)
 	if (!droidTemplate_LoadPartByName(COMP_ECM, ini.value("ecm", WzString("ZNULLECM")).toWzString(), design)) return false;
 	if (!droidTemplate_LoadPartByName(COMP_SENSOR, ini.value("sensor", WzString("ZNULLSENSOR")).toWzString(), design)) return false;
 	if (!droidTemplate_LoadPartByName(COMP_CONSTRUCT, ini.value("construct", WzString("ZNULLCONSTRUCT")).toWzString(), design)) return false;
-
+	
 	std::vector<WzString> weapons = ini.value("weapons").toWzStringList();
 	ASSERT(weapons.size() <= MAX_WEAPONS, "Number of weapons (%zu) exceeds MAX_WEAPONS (%d)", weapons.size(), MAX_WEAPONS);
 	design.numWeaps = (weapons.size() <= MAX_WEAPONS) ? (int8_t)weapons.size() : MAX_WEAPONS;
 	if (!droidTemplate_LoadWeapByName(0, (weapons.size() >= 1) ? weapons[0] : "ZNULLWEAPON", design)) return false;
 	if (!droidTemplate_LoadWeapByName(1, (weapons.size() >= 2) ? weapons[1] : "ZNULLWEAPON", design)) return false;
 	if (!droidTemplate_LoadWeapByName(2, (weapons.size() >= 3) ? weapons[2] : "ZNULLWEAPON", design)) return false;
-
+	// calculate template's unique hash from its stats:
+	design.designHash = hashTemplate(design);
 	return true;
 }
+
 
 bool initTemplates()
 {
@@ -289,6 +441,9 @@ bool initTemplates()
 			continue;
 		}
 		DROID_TEMPLATE *psDestTemplate = nullptr;
+		const bool designHashAdded = addDesignHash(design);
+
+		// check for duplicates...
 		for (auto &keyvaluepair : droidTemplates[selectedPlayer])
 		{
 			psDestTemplate = keyvaluepair.second.get();
@@ -313,8 +468,18 @@ bool initTemplates()
 		}
 		if (psDestTemplate)
 		{
+			// we found a duplicate
+			if (designHashAdded)
+			{
+				debug(LOG_ERROR, "1- designHash was added, but total hash is duplicate %s", design.name.toUtf8().c_str());
+			}
 			psDestTemplate->stored = true; // assimilate it
 			continue; // next!
+		}
+		// never encountered before: add it
+		if (!designHashAdded)
+		{
+			debug(LOG_ERROR, "2- designHash was not added, but total hash is new %s", design.name.toUtf8().c_str());
 		}
 		design.enabled = allowDesign;
 		copyTemplate(selectedPlayer, &design);
@@ -756,3 +921,10 @@ void checkPlayerBuiltHQ(const STRUCTURE *psStruct)
 		playerBuiltHQ = true;
 	}
 }
+
+static std::unordered_map<uint64_t, std::string> templateNames;
+/// Template names are immutable, and cannot be changed during runtime
+/*const &std::string templateGetName(uint64_t templateHash)
+{
+
+}*/

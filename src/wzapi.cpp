@@ -2119,7 +2119,7 @@ std::unique_ptr<const DROID> wzapi::getDroidProduction(WZAPI_PARAMS(const STRUCT
 	{
 		return nullptr;
 	}
-	DROID *psDroid = new DROID(0, player, getStatsName(psTemp));
+	DROID *psDroid = new DROID(0, player, getStatsName(psTemp), psTemp->multiPlayerID);
 	psDroid->pos = psStruct->pos;
 	psDroid->rot = psStruct->rot;
 	psDroid->experience = 0;
