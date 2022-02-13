@@ -3083,6 +3083,7 @@ bool loadGame(const char *pGameToLoad, bool keepObjects, bool freeMem, bool User
 	initStructLimits();
 	aFileName[fileExten] = '\0';
 	strcat(aFileName, "struct.json");
+	debug(LOG_INFO, "loading struct file %s", aFileName);
 	if (!UserSaveGame)
 	{
 		ASSERT(data != nullptr, "Expecting WzMap::Map instance");
@@ -5800,7 +5801,7 @@ bool loadSaveStructure(char *pFileData, UDWORD filesize)
 
 		return false;
 	}
-
+	debug(LOG_INFO, "loading file %s", pFileData); 
 	/* STRUCT_SAVEHEADER */
 	endian_udword(&psHeader->version);
 	endian_udword(&psHeader->quantity);
@@ -6057,7 +6058,7 @@ static bool loadSaveStructure2(const char *pFileName)
 	WzConfig ini(WzString::fromUtf8(pFileName), WzConfig::ReadOnly);
 
 	freeAllFlagPositions();		//clear any flags put in during level loads
-
+	debug(LOG_INFO, "loading file %s", pFileName); 
 	std::vector<WzString> list = ini.childGroups();
 	for (size_t i = 0; i < list.size(); ++i)
 	{
