@@ -2815,7 +2815,7 @@ bool loadGame(const char *pGameToLoad, bool keepObjects, bool freeMem, bool User
 		initStructLimits();
 		aFileName[fileExten] = '\0';
 		strcat(aFileName, "mstruct.json");
-
+		debug(LOG_INFO,"loading mstruct.json");
 		//load in the mission structures
 		if (!loadSaveStructure2(aFileName, apsStructLists))
 		{
@@ -5778,7 +5778,7 @@ bool loadSaveStructure(char *pFileData, UDWORD filesize)
 	int32_t				found;
 	UDWORD				NumberOfSkippedStructures = 0;
 	UDWORD				periodicalDamageTime;
-
+	debug(LOG_INFO, "loading file %s", pFileData);
 	/* Check the file type */
 	psHeader = (STRUCT_SAVEHEADER *)pFileData;
 	if (psHeader->aFileType[0] != 's' || psHeader->aFileType[1] != 't' ||
@@ -6042,7 +6042,7 @@ static bool loadSaveStructure2(const char *pFileName, STRUCTURE **ppList)
 	WzConfig ini(WzString::fromUtf8(pFileName), WzConfig::ReadOnly);
 
 	freeAllFlagPositions();		//clear any flags put in during level loads
-
+	debug(LOG_INFO, "loading file %s", pFileName);
 	std::vector<WzString> list = ini.childGroups();
 	for (size_t i = 0; i < list.size(); ++i)
 	{
