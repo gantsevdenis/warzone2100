@@ -6057,6 +6057,7 @@ static bool loadSaveStructure2(const char *pFileName, STRUCTURE **ppList)
 		ini.beginGroup(list[i]);
 		int player = getPlayer(ini);
 		int id = ini.value("id", -1).toInt();
+		if (id == 901) {debug(LOG_INFO, "adding problematic module..");}
 		Position pos = ini.vector3i("position");
 		Rotation rot = ini.vector3i("rotation");
 		WzString name = ini.string("name");
@@ -6090,6 +6091,7 @@ static bool loadSaveStructure2(const char *pFileName, STRUCTURE **ppList)
 			ini.endGroup();
 			continue; // skip it
 		}
+		debug(LOG_INFO, "trying to build structure %i;%i;%s", id, player, psStats->name.toUtf8().c_str());
 		psStructure = buildStructureDir(psStats, pos.x, pos.y, rot.direction, player, true);
 		ASSERT(psStructure, "Unable to create structure");
 		if (!psStructure)
@@ -6101,7 +6103,6 @@ static bool loadSaveStructure2(const char *pFileName, STRUCTURE **ppList)
 		{
 			psStructure->id = id;	// force correct ID
 		}
-
 		// common BASE_OBJECT info
 		loadSaveObject(ini, psStructure);
 
