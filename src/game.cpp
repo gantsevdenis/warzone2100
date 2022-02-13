@@ -5997,7 +5997,7 @@ static bool loadWzMapStructure(WzMap::Map& wzMap)
 			// the scripts -so in ALL CASES overwrite the ID!
 			psStructure->id = structure.id.value() > 0 ? structure.id.value() : 0xFEDBCA98; // hack to remove struct id zero
 		}
-		if (psStructure->id == 901) {debug(LOG_INFO, "problematic case...");}
+		if (psStructure->id == 901) {debug(LOG_INFO, "problematic case...%s", structure.name.c_str());}
 		if (structure.modules > 0)
 		{
 			auto moduleStat = getModuleStat(psStructure);
