@@ -478,6 +478,7 @@ STRUCTURE *IdToStruct(UDWORD id, UDWORD player)
 			}
 		}
 	}
+	debug(LOG_INFO, "didnt find object: %i;%i", id, player);
 	return nullptr;
 }
 

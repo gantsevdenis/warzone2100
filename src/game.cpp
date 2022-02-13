@@ -2217,7 +2217,8 @@ static bool loadSaveDroidPointers(const WzString &pFileName, DROID **ppsCurrentD
 static bool writeDroidFile(const char *pFileName, DROID **ppsCurrentDroidLists);
 
 static bool loadSaveStructure(char *pFileData, UDWORD filesize);
-static bool loadSaveStructure2(const char *pFileName, STRUCTURE **ppList);
+//static bool loadSaveStructure2(const char *pFileName, STRUCTURE **ppList);
+static bool loadSaveStructure2(const char *pFileName);
 static bool loadWzMapStructure(WzMap::Map& wzMap);
 static bool loadSaveStructurePointers(const WzString& filename, STRUCTURE **ppList);
 static bool writeStructFile(const char *pFileName);
@@ -2817,7 +2818,8 @@ bool loadGame(const char *pGameToLoad, bool keepObjects, bool freeMem, bool User
 		strcat(aFileName, "mstruct.json");
 
 		//load in the mission structures
-		if (!loadSaveStructure2(aFileName, apsStructLists))
+		//if (!loadSaveStructure2(aFileName, apsStructLists))
+		if (!loadSaveStructure2(aFileName))
 		{
 			aFileName[fileExten] = '\0';
 			strcat(aFileName, "mstruct.bjo");
@@ -3099,7 +3101,8 @@ bool loadGame(const char *pGameToLoad, bool keepObjects, bool freeMem, bool User
 			resetFactoryNumFlag();	//reset flags into the masks
 		}
 	}
-	else if (!loadSaveStructure2(aFileName, apsStructLists))
+	//else if (!loadSaveStructure2(aFileName, apsStructLists))
+	else if (!loadSaveStructure2(aFileName))
 	{
 		debug(LOG_ERROR, "Failed with: %s", aFileName);
 		goto error;
@@ -5997,6 +6000,7 @@ static bool loadWzMapStructure(WzMap::Map& wzMap)
 		STRUCTURE *psStructure = nullptr;
 		if (structure.id.has_value() && structure.id.value() > 0)
 		{
+			debug(LOG_INFO, "trying to build structure %i;%i;%s", structure.id.value(), player, structure.name.c_str());
 			psStructure = buildStructureDir(psStats, structure.position.x, structure.position.y, structure.direction, player, true, structure.id.value());
 		} else
 		{
@@ -6043,7 +6047,7 @@ static bool loadWzMapStructure(WzMap::Map& wzMap)
 
 // -----------------------------------------------------------------------------------------
 /* code for versions after version 20 of a save structure */
-static bool loadSaveStructure2(const char *pFileName, STRUCTURE **ppList)
+static bool loadSaveStructure2(const char *pFileName)
 {
 	if (!PHYSFS_exists(pFileName))
 	{
@@ -6105,6 +6109,7 @@ static bool loadSaveStructure2(const char *pFileName, STRUCTURE **ppList)
 		{
 			id = generateSynchronisedObjectId();
 		}
+		debug(LOG_INFO, "trying to build structure %i;%i;%s", id, player, psStats->name.toUtf8().c_str());
 		psStructure = buildStructureDir(psStats, pos.x, pos.y, rot.direction, player, true, id);
 		ASSERT(psStructure, "Unable to create structure");
 		if (!psStructure)
