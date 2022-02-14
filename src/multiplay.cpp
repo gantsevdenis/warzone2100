@@ -465,6 +465,7 @@ STRUCTURE *IdToStruct(UDWORD id, UDWORD player)
 		endPlayer = std::min<int>(player + 1, MAX_PLAYERS);
 	}
 	STRUCTURE **lists[2] = {apsStructLists, mission.apsStructLists};
+	STRUCTURE *out = nullptr;
 	for (int j = 0; j < 2; ++j)
 	{
 		for (int i = beginPlayer; i < endPlayer; ++i)
@@ -473,12 +474,13 @@ STRUCTURE *IdToStruct(UDWORD id, UDWORD player)
 			{
 				if (d->id == id)
 				{
-					return d;
+					if (id == 901) {debug(LOG_INFO, "found 901! %s;%s", d->pStructureType->name.toUtf8().c_str(), d->pStructureType->id.toUtf8().c_str());}
+					out = d;
 				}
 			}
 		}
 	}
-	return nullptr;
+	return out;
 }
 
 // ////////////////////////////////////////////////////////////////////////////

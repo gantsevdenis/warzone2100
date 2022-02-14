@@ -491,6 +491,7 @@ void freeAllLimboDroids()
 /* add the structure to the Structure Lists */
 void addStructure(STRUCTURE *psStructToAdd)
 {
+	if (psStructToAdd->id == 901) {debug(LOG_INFO, "adding 901 to player");}
 	addObjectToList(apsStructLists, psStructToAdd, psStructToAdd->player);
 	if (psStructToAdd->pStructureType->pSensor
 	    && psStructToAdd->pStructureType->pSensor->location == LOC_TURRET)

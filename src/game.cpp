@@ -2814,8 +2814,6 @@ bool loadGame(const char *pGameToLoad, bool keepObjects, bool freeMem, bool User
 
 		initStructLimits();
 		aFileName[fileExten] = '\0';
-		strcat(aFileName, "mstruct.json");
-		debug(LOG_INFO,"loading mstruct.json");
 		//load in the mission structures
 		if (!loadSaveStructure2(aFileName, apsStructLists))
 		{
@@ -5997,7 +5995,10 @@ static bool loadWzMapStructure(WzMap::Map& wzMap)
 			// the scripts -so in ALL CASES overwrite the ID!
 			psStructure->id = structure.id.value() > 0 ? structure.id.value() : 0xFEDBCA98; // hack to remove struct id zero
 		}
-		if (psStructure->id == 901) {debug(LOG_INFO, "problematic case...%s", structure.name.c_str());}
+		if (psStructure->id == 901) {debug(LOG_INFO, "problematic case...%s;%s;%i;%i", structure.name.c_str(),
+				 psStructure->pStructureType->id.toUtf8().c_str(), 
+				 map_coord(structure.position.x),
+				 map_coord(structure.position.y));}
 		if (structure.modules > 0)
 		{
 			auto moduleStat = getModuleStat(psStructure);
@@ -6006,6 +6007,7 @@ static bool loadWzMapStructure(WzMap::Map& wzMap)
 				debug(LOG_ERROR, "Structure %s can't have modules.", structure.name.c_str());
 				continue;
 			}
+			if (psStructure->id == 901) {debug(LOG_INFO, "problematic case...%s", moduleStat->name.toUtf8().c_str());}
 			for (int i = 0; i < structure.modules; ++i)
 			{
 				buildStructure(moduleStat, structure.position.x, structure.position.y, player, true);
@@ -6092,7 +6094,7 @@ static bool loadSaveStructure2(const char *pFileName, STRUCTURE **ppList)
 			ini.endGroup();
 			continue; // skip it
 		}
-		debug(LOG_INFO, "trying to build structure %i;%i;%s", id, player, psStats->name.toUtf8().c_str());
+		debug(LOG_INFO, "trying to build structure %i;%i;%s;%i;%i", id, player, psStats->name.toUtf8().c_str(), pos.x, pos.y);
 		psStructure = buildStructureDir(psStats, pos.x, pos.y, rot.direction, player, true);
 		ASSERT(psStructure, "Unable to create structure");
 		if (!psStructure)
