@@ -5976,6 +5976,7 @@ static bool loadWzMapStructure(WzMap::Map& wzMap)
 		//for modules - need to check the base structure exists
 		if (IsStatExpansionModule(psStats))
 		{
+			// given a module position, find its base structure
 			STRUCTURE *psStructure = getTileStructure(map_coord(structure.position.x), map_coord(structure.position.y));
 			if (psStructure == nullptr)
 			{
@@ -5996,12 +5997,11 @@ static bool loadWzMapStructure(WzMap::Map& wzMap)
 			player = MAX_PLAYERS - 1;
 			NumberOfSkippedStructures++;
 		}
-		// The original code here didn't work and so the scriptwriters worked round it by using the module ID - so making it work now will screw up
-		// the scripts -so in ALL CASES overwrite the ID!
 		STRUCTURE *psStructure = nullptr;
 		if (structure.id.has_value() && structure.id.value() > 0)
 		{
-			debug(LOG_INFO, "trying to build structure %i;%i;%s", structure.id.value(), player, structure.name.c_str());
+			//debug(LOG_INFO, "trying to build structure %i;%i;%s;%i;%i", structure.id.value(), player, 
+			//		structure.name.c_str(), map_coord(structure.position.x), map_coord(structure.position.y));
 			psStructure = buildStructureDir(psStats, structure.position.x, structure.position.y, structure.direction, player, true, structure.id.value());
 		} else
 		{
@@ -6013,6 +6013,9 @@ static bool loadWzMapStructure(WzMap::Map& wzMap)
 			debug(LOG_ERROR, "Structure %s couldn't be built (probably on top of another structure).", structure.name.c_str());
 			continue;
 		}
+		// Previously, we would override building's ID with module's ID
+		// now, "id" is const, we can't do that. 
+		// this may break some mods which look up structures by theirs module id.
 		if (structure.modules > 0)
 		{
 			auto moduleStat = getModuleStat(psStructure);

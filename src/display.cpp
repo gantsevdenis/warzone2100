@@ -1592,7 +1592,6 @@ void AddDerrickBurningMessage()
 static void printDroidClickInfo(DROID *psDroid)
 {
 	const DebugInputManager& dbgInputManager = gInputManager.debugManager();
-	//debug(LOG_INFO, "show template name %s", droidTemplateGetName(psDroid->player, psDroid->multiPlayerID).toUtf8().c_str());
 	if (dbgInputManager.debugMappingsAllowed()) // cheating on, so output debug info
 	{
 		console("%s - Hitpoints %d/%d - ID %d - experience %f, %s - order %s - action %s - sensor range %hu - ECM %u - pitch %.0f - frust %u - kills %d",

@@ -74,7 +74,7 @@ struct DROID_TEMPLATE : public BASE_STATS
 	DROID_TYPE      droidType;                  ///< The type of droid
 	UDWORD          multiPlayerID;              ///< multiplayer unique descriptor(cant use id's for templates). Used for save games as well now - AB 29/10/98
 	// GCC and Clang should have this __uint128_t
-	TemplateHash_t 	designHash;					///< unique hash for its designable components
+	TemplateHash_t 	designHash;					///< unique easily comparable hash/id
 	bool            prefab;                     ///< Not player designed, not saved, never delete or change
 	bool            stored;                     ///< Stored template
 	bool            enabled;                    ///< Has been enabled
