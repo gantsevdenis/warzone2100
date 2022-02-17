@@ -89,11 +89,13 @@ function camMakePos(xx, yy)
 	var obj = xx;
 	if (camIsString(xx))
 	{
+
 		obj = getObject(xx);
+
 	}
 	if (!camDef(obj) || !obj)
 	{
-		camDebug("Failed at", xx);
+		camDebug("Failed at", xx, typeof(xx));
 		return undefined;
 	}
 	switch (obj.type)

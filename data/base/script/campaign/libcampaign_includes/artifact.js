@@ -26,6 +26,7 @@
 function camSetArtifacts(artifacts)
 {
 	__camArtifacts = artifacts;
+	debug(JSON.stringify(artifacts));
 	for (var alabel in __camArtifacts)
 	{
 		var ai = __camArtifacts[alabel];
