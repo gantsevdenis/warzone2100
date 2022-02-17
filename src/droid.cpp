@@ -79,6 +79,8 @@
 // store the experience of recently recycled droids
 static std::priority_queue<int> recycled_experience[MAX_PLAYERS];
 static std::unordered_map<uint32_t, std::string> droidNames;
+// for each droid, what template it was built with?
+static std::unordered_map<UDWORD, TemplateHash_t> droidToTemplate[MAX_PLAYERS];
 
 /** Height the transporter hovers at above the terrain. */
 #define TRANSPORTER_HOVER_HEIGHT	10
@@ -300,7 +302,7 @@ int32_t droidDamage(DROID *psDroid, unsigned damage, WEAPON_CLASS weaponClass, W
 	return relativeDamage;
 }
 
-DROID::DROID(uint32_t id, unsigned player, const char *name, UDWORD multiPlayerID)
+DROID::DROID(uint32_t id, unsigned player, const char *name)
 	: BASE_OBJECT(OBJ_DROID, id, player)
 	, droidType(DROID_ANY)
 	, psGroup(nullptr)
@@ -313,7 +315,6 @@ DROID::DROID(uint32_t id, unsigned player, const char *name, UDWORD multiPlayerI
 
 {
 	droidNames.emplace(id, std::string(name));
-	//debug(LOG_INFO, "created %i;%s;%i", id, name, multiPlayerID);
 	memset(asBits, 0, sizeof(asBits));
 	pos = Vector3i(0, 0, 0);
 	rot = Vector3i(0, 0, 0);
@@ -1573,12 +1574,18 @@ DROID *reallyBuildDroid(const DROID_TEMPLATE *pTemplate, Position pos, UDWORD pl
 
 	ASSERT_OR_RETURN(nullptr, player < MAX_PLAYERS, "Invalid player: %" PRIu32 "", player);
 
-	DROID *psDroid = new DROID(id, player, getStatsName(pTemplate), pTemplate->multiPlayerID);
+	DROID *psDroid = new DROID(id, player, getStatsName(pTemplate));
 
 	//droidSetName(psDroid, );
 
 	// Set the droids type
 	psDroid->droidType = droidTemplateType(pTemplate);  // Is set again later to the same thing, in droidSetBits.
+	droidToTemplate[player].emplace(id, pTemplate->templateHash);
+
+	if (psDroid->droidType != pTemplate->droidType)
+	{
+		debug(LOG_ERROR, "droidTypes differ: %i!=%i;%s,", psDroid->droidType, pTemplate->droidType, droidGetName(psDroid));
+	}
 	psDroid->pos = pos;
 	psDroid->rot = rot;
 
@@ -2205,9 +2212,19 @@ UDWORD	getNumDroidsForLevel(uint32_t player, UDWORD level)
 	return count;
 }
 static const char empty[MAX_STR_LENGTH] = {0};
-// Get the name of a droid from it's DROID structure.
-//
+
 const char *droidGetName(const DROID *psDroid)
+{
+	const auto player = psDroid->player;
+	const auto it = droidToTemplate[player].find(psDroid->id);
+	if (it == droidToTemplate[player].end())
+	{
+		debug(LOG_ERROR, "droid id not found %i", psDroid->id);
+		return empty;
+	}
+	return droidTemplateGetName(psDroid->player, droidToTemplate[player][psDroid->id]);
+}
+/*const char *droidGetName(const DROID *psDroid)
 {
 	ASSERT_NOT_NULLPTR_OR_RETURN("", psDroid);
 	auto it = droidNames.find(psDroid->id);
@@ -2222,7 +2239,7 @@ const char *droidGetName(const DROID *psDroid)
 	}
 	return droidNames[psDroid->id].c_str();
 }
-
+*/
 //
 // Set the name of a droid in it's DROID structure.
 //

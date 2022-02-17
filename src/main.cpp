@@ -1227,10 +1227,10 @@ static void runTitleLoop()
 void mainLoop()
 {
 	frameUpdate(); // General housekeeping
-	debug(LOG_INFO, "DROID size %li", sizeof(DROID));
-	debug(LOG_INFO, "BASE_OBJECT size %li", sizeof(BASE_OBJECT));
-	debug(LOG_INFO, "DROID_TEMPLATE size %li", sizeof(DROID_TEMPLATE));
-	debug(LOG_INFO, "SIMPLE_OBJECT %li", sizeof(SIMPLE_OBJECT));
+	// debug(LOG_INFO, "DROID size %li", sizeof(DROID));
+	// debug(LOG_INFO, "BASE_OBJECT size %li", sizeof(BASE_OBJECT));
+	// debug(LOG_INFO, "DROID_TEMPLATE size %li", sizeof(DROID_TEMPLATE));
+	// debug(LOG_INFO, "SIMPLE_OBJECT %li", sizeof(SIMPLE_OBJECT));
 
 	// Screenshot key is now available globally
 	if (keyPressed(KEY_F10))

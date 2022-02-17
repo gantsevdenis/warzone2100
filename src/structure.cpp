@@ -1363,14 +1363,13 @@ STRUCTURE *buildStructureDir(STRUCTURE_STATS *pStructureType, UDWORD x, UDWORD y
 					wallOrientation = structChooseWallType(player, pos);  // This makes neighbouring walls match us, even if we're a hardpoint, not a wall.
 				}
 		}
-		if (id == 901) { debug(LOG_INFO, "here 901...");};
 		// allocate memory for and initialize a structure object
 		psBuilding = new STRUCTURE(id, player);
 		if (psBuilding == nullptr)
 		{
 			return nullptr;
 		}
-		if (id == 901) { debug(LOG_INFO, "here 901...");};
+		
 		//fill in other details
 		psBuilding->pStructureType = pStructureType;
 
@@ -1411,7 +1410,7 @@ STRUCTURE *buildStructureDir(STRUCTURE_STATS *pStructureType, UDWORD x, UDWORD y
 				turnOffMultiMsg(false);
 			}
 		}
-		if (id == 901) { debug(LOG_INFO, "here 901...");};
+		
 		for (int tileY = map.y; tileY < map.y + size.y; ++tileY)
 		{
 			for (int tileX = map.x; tileX < map.x + size.x; ++tileX)
@@ -1602,7 +1601,7 @@ STRUCTURE *buildStructureDir(STRUCTURE_STATS *pStructureType, UDWORD x, UDWORD y
 		psBuilding->expectedDamage = 0;  // Begin life optimistically.
 
 		//add the structure to the list - this enables it to be drawn whilst being built
-		debug(LOG_INFO, "adding structure %i;%s", psBuilding->id, psBuilding->pStructureType->name.toUtf8().c_str());
+		//debug(LOG_INFO, "adding structure %i;%s", psBuilding->id, psBuilding->pStructureType->name.toUtf8().c_str());
 		addStructure(psBuilding);
 
 		asStructureStats[max].curCount[player]++;
@@ -1643,7 +1642,7 @@ STRUCTURE *buildStructureDir(STRUCTURE_STATS *pStructureType, UDWORD x, UDWORD y
 	{
 		bool		bUpgraded = false;
 		int32_t         bodyDiff = 0;
-		if (id == 901) { debug(LOG_INFO, "here 901...");};
+		
 		//don't create the Structure use existing one
 		psBuilding = getTileStructure(map_coord(x), map_coord(y));
 		
@@ -1651,7 +1650,7 @@ STRUCTURE *buildStructureDir(STRUCTURE_STATS *pStructureType, UDWORD x, UDWORD y
 		{
 			return nullptr;
 		}
-		if (id == 901) { debug(LOG_INFO, "here 901...");};
+		
 		int prevResearchState = intGetResearchState();
 
 		if (pStructureType->type == REF_FACTORY_MODULE)
@@ -1699,12 +1698,12 @@ STRUCTURE *buildStructureDir(STRUCTURE_STATS *pStructureType, UDWORD x, UDWORD y
 
 		if (pStructureType->type == REF_POWER_MODULE)
 		{
-			if (id == 901) { debug(LOG_INFO, "here 901...");};
+			
 			if (psBuilding->pStructureType->type != REF_POWER_GEN)
 			{
 				return nullptr;
 			}
-			if (id == 901) { debug(LOG_INFO, "here 901...");};
+			
 			//increment the capacity and research points for the owning structure
 			if (psBuilding->capacity == 0)
 			{
@@ -1719,7 +1718,7 @@ STRUCTURE *buildStructureDir(STRUCTURE_STATS *pStructureType, UDWORD x, UDWORD y
 				releasePowerGen(psBuilding);
 			}
 		}
-		if (id == 901) { debug(LOG_INFO, "here 901...");};
+		
 		if (bUpgraded)
 		{
 			std::vector<iIMDShape *> &IMDs = psBuilding->pStructureType->pIMD;
@@ -1753,7 +1752,7 @@ STRUCTURE *buildStructureDir(STRUCTURE_STATS *pStructureType, UDWORD x, UDWORD y
 				}
 			}
 		}
-		if (id == 901) { debug(LOG_INFO, "here 901...");};
+		
 		intNotifyResearchButton(prevResearchState);
 	}
 	if (pStructureType->type != REF_WALL && pStructureType->type != REF_WALLCORNER)

@@ -35,7 +35,7 @@ bool initTemplates();
 /// Take ownership of template given by pointer.
 /// Returns a new usable DROID_TEMPLATE *
 DROID_TEMPLATE* addTemplate(int player, std::unique_ptr<DROID_TEMPLATE> psTemplate);
-const WzString& droidTemplateGetName(int player, UDWORD multiplayerId);
+const char* droidTemplateGetName(int player, UDWORD hash);
 
 /// Make a duplicate of template given by pointer and store it. Then return pointer to copy.
 DROID_TEMPLATE *copyTemplate(int player, DROID_TEMPLATE *psTemplate);

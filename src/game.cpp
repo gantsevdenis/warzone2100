@@ -5033,7 +5033,8 @@ static bool loadWzMapDroidInit(WzMap::Map &wzMap)
 			player = MAX_PLAYERS - 1;	// now don't lose any droids ... force them to be the last player
 			NumberOfSkippedDroids++;
 		}
-		auto psTemplate = getTemplateFromTranslatedNameNoPlayer(droid.name.c_str());
+		//auto psTemplate = getTemplateFromTranslatedNameNoPlayer(droid.name.c_str());
+		// auto psTemplate = droidT
 		if (psTemplate == nullptr)
 		{
 			debug(LOG_ERROR, "Unable to find template for %s for player %d -- unit skipped", droid.name.c_str(), player);
@@ -6427,8 +6428,10 @@ bool writeStructFile(const char *pFileName)
 							ProductionRunEntry psCurrentProd = productionRun.at(runNum);
 							ini.setValue("Factory/Run/" + WzString::number(runNum) + "/quantity", psCurrentProd.quantity);
 							ini.setValue("Factory/Run/" + WzString::number(runNum) + "/built", psCurrentProd.built);
-							if (psCurrentProd.psTemplate) ini.setValue("Factory/Run/" + WzString::number(runNum) + "/template",
-										psCurrentProd.psTemplate->multiPlayerID);
+							if (psCurrentProd.psTemplate)
+							{
+								ini.setValue("Factory/Run/" + WzString::number(runNum) + "/template", psCurrentProd.psTemplate->multiPlayerID);
+							}
 						}
 					}
 					else

@@ -478,7 +478,8 @@ STRUCTURE *IdToStruct(UDWORD id, UDWORD player)
 			}
 		}
 	}
-	debug(LOG_INFO, "didnt find object: %i;%i", id, player);
+	// SIMPLE_OBJECT.ids are now "const", so please make sure to actually lookup structures' ids, not their modules' ids
+	debug(LOG_WARNING, "didnt find object: %i;%i", id, player);
 	return nullptr;
 }
 

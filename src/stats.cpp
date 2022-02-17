@@ -157,43 +157,51 @@ bool statsShutDown()
 /* Allocate Weapon stats */
 bool statsAllocWeapons(UDWORD	numStats)
 {
+	debug(LOG_INFO, "allocating %u weaponStats", numStats);
 	ALLOC_STATS(numStats, asWeaponStats, numWeaponStats, WEAPON_STATS);
 }
 /* Allocate Body Stats */
 bool statsAllocBody(UDWORD	numStats)
 {
+	debug(LOG_INFO, "allocating %u bodyStats", numStats);
 	ALLOC_STATS(numStats, asBodyStats, numBodyStats, BODY_STATS);
 }
 /* Allocate Brain Stats */
 bool statsAllocBrain(UDWORD	numStats)
 {
+	debug(LOG_INFO, "allocating %u brainnStats", numStats);
 	ALLOC_STATS(numStats, asBrainStats, numBrainStats, BRAIN_STATS);
 }
 /* Allocate Propulsion Stats */
 bool statsAllocPropulsion(UDWORD	numStats)
 {
+	debug(LOG_INFO, "allocating %u propulsionStats", numStats);
 	ALLOC_STATS(numStats, asPropulsionStats, numPropulsionStats, PROPULSION_STATS);
 }
 /* Allocate Sensor Stats */
 bool statsAllocSensor(UDWORD	numStats)
 {
+	debug(LOG_INFO, "allocating %u sensorStats", numStats);
 	ALLOC_STATS(numStats, asSensorStats, numSensorStats, SENSOR_STATS);
 }
 /* Allocate Ecm Stats */
 bool statsAllocECM(UDWORD	numStats)
 {
+	debug(LOG_INFO, "allocating %u ecmStats", numStats);
 	ALLOC_STATS(numStats, asECMStats, numECMStats, ECM_STATS);
 }
 
 /* Allocate Repair Stats */
 bool statsAllocRepair(UDWORD	numStats)
 {
+	debug(LOG_INFO, "allocating %u repairStats", numStats);
 	ALLOC_STATS(numStats, asRepairStats, numRepairStats, REPAIR_STATS);
 }
 
 /* Allocate Construct Stats */
 bool statsAllocConstruct(UDWORD	numStats)
 {
+	debug(LOG_INFO, "allocating %u constructorStats", numStats);
 	ALLOC_STATS(numStats, asConstructStats, numConstructStats, CONSTRUCT_STATS);
 }
 

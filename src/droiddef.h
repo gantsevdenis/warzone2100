@@ -74,7 +74,7 @@ struct DROID_TEMPLATE : public BASE_STATS
 	DROID_TYPE      droidType;                  ///< The type of droid
 	UDWORD          multiPlayerID;              ///< multiplayer unique descriptor(cant use id's for templates). Used for save games as well now - AB 29/10/98
 	// GCC and Clang should have this __uint128_t
-	TemplateHash_t 	designHash;					///< unique easily comparable hash/id
+	TemplateHash_t 	templateHash;				///< unique easily comparable hash/id
 	bool            prefab;                     ///< Not player designed, not saved, never delete or change
 	bool            stored;                     ///< Stored template
 	bool            enabled;                    ///< Has been enabled
@@ -96,9 +96,9 @@ struct STRUCTURE;
 
 struct DROID : public BASE_OBJECT
 {
-	DROID(uint32_t id, unsigned player, const char *name, UDWORD multiPlayerID);
+	DROID(uint32_t id, unsigned player, const char *name);
 	~DROID();
-	
+	// this is not needed I think: use backref in depending tables
 	TemplateHash_t          designHash;					///< keep reference to it's original template
 	
 	/// UTF-8 name of the droid. This is generated from the droid template

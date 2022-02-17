@@ -40,9 +40,13 @@
 #include "main.h"
 #include <unordered_set>
 
-// Template storage
+// Template storage, for each multiplayerId->Template
 std::map<UDWORD, std::unique_ptr<DROID_TEMPLATE>> droidTemplates[MAX_PLAYERS];
+
+//static std::unordered_set<TemplateHash_t> knownTemplates[MAX_PLAYERS];
+// this is written, nut never read...
 std::vector<std::unique_ptr<DROID_TEMPLATE>> replacedDroidTemplates[MAX_PLAYERS];
+std::unordered_map<TemplateHash_t, std::string> templateNames[MAX_PLAYERS];
 
 #define ASSERT_PLAYER_OR_RETURN(retVal, player) \
 	ASSERT_OR_RETURN(retVal, player >= 0 && player < MAX_PLAYERS, "Invalid player: %" PRIu32 "", player);
@@ -51,7 +55,7 @@ bool allowDesign = true;
 bool includeRedundantDesigns = false;
 bool playerBuiltHQ = false;
 
-const WzString& droidTemplateGetName(int player, UDWORD multiplayerId)
+/*const WzString& droidTemplateGetName(int player, UDWORD multiplayerId)
 {
 	static const WzString empty("");
 	auto it = droidTemplates[player].find(multiplayerId);
@@ -61,9 +65,18 @@ const WzString& droidTemplateGetName(int player, UDWORD multiplayerId)
 		return empty;
 	}
 	return droidTemplates[player].at(multiplayerId)->name;
+}*/
+static const char empty[MAX_STR_LENGTH] = {0};
+const char* droidTemplateGetName(int player, UDWORD hash)
+{
+	auto it = droidTemplates[player].find(hash);
+	if (it == droidTemplates[player].end())
+	{
+		debug(LOG_ERROR, "no template name: hash; %i;%i", hash, player);
+		return empty;
+	}
+	return droidTemplates[player][hash]->name.toUtf8().c_str();
 }
-
-
 
 static bool researchedItem(const DROID_TEMPLATE* /*psCurr*/, int player, COMPONENT_TYPE partIndex, int part, bool allowZero, bool allowRedundant)
 {
@@ -195,18 +208,17 @@ uint8_t inline getComWeapon2(TemplateHash_t templateHash)
 	return (templateHash >> COMP_WEAP2_OFFSET) & UINT8_MAX;
 }
 #endif
-static std::unordered_set<TemplateHash_t> knownDesignHashes;
 
-static bool addDesignHash(const DROID_TEMPLATE &design)
+/*static bool addDesignHash(const DROID_TEMPLATE &design)
 {
-	auto it = knownDesignHashes.find(design.designHash);
+	auto it = knownDesignHashes.find(design.templateHash);
 	if (it == knownDesignHashes.end())
 	{
-		knownDesignHashes.emplace(design.designHash);
+		knownDesignHashes.emplace(design.templateHash);
 		return true;
 	}
 	return false;
-}
+}*/
 
 WZ_DECL_PURE
 static TemplateHash_t hashTemplate(const DROID_TEMPLATE &design)
@@ -372,7 +384,7 @@ bool loadTemplateCommon(WzConfig &ini, DROID_TEMPLATE &outputTemplate)
 	if (!droidTemplate_LoadWeapByName(1, (weapons.size() >= 2) ? weapons[1] : "ZNULLWEAPON", design)) return false;
 	if (!droidTemplate_LoadWeapByName(2, (weapons.size() >= 3) ? weapons[2] : "ZNULLWEAPON", design)) return false;
 	// calculate template's unique hash from its stats:
-	design.designHash = hashTemplate(design);
+	design.templateHash = hashTemplate(design);
 	return true;
 }
 
@@ -392,6 +404,7 @@ bool initTemplates()
 	{
 		return true; // too old version
 	}
+
 	for (ini.beginArray("templates"); ini.remainingArrayItems(); ini.nextArrayItem())
 	{
 		DROID_TEMPLATE design;
@@ -441,46 +454,36 @@ bool initTemplates()
 			continue;
 		}
 		DROID_TEMPLATE *psDestTemplate = nullptr;
-		const bool designHashAdded = addDesignHash(design);
 
-		// check for duplicates...
-		for (auto &keyvaluepair : droidTemplates[selectedPlayer])
+		if (droidTemplates[selectedPlayer].find(design.templateHash) != droidTemplates[selectedPlayer].end())
 		{
-			psDestTemplate = keyvaluepair.second.get();
-			// Check if template is identical to a loaded template
-			if (psDestTemplate->droidType == design.droidType
-			    && psDestTemplate->name.compare(design.name) == 0
-			    && psDestTemplate->numWeaps == design.numWeaps
-			    && psDestTemplate->asWeaps[0] == design.asWeaps[0]
-			    && psDestTemplate->asWeaps[1] == design.asWeaps[1]
-			    && psDestTemplate->asWeaps[2] == design.asWeaps[2]
-			    && psDestTemplate->asParts[COMP_BODY] == design.asParts[COMP_BODY]
-			    && psDestTemplate->asParts[COMP_PROPULSION] == design.asParts[COMP_PROPULSION]
-			    && psDestTemplate->asParts[COMP_REPAIRUNIT] == design.asParts[COMP_REPAIRUNIT]
-			    && psDestTemplate->asParts[COMP_ECM] == design.asParts[COMP_ECM]
-			    && psDestTemplate->asParts[COMP_SENSOR] == design.asParts[COMP_SENSOR]
-			    && psDestTemplate->asParts[COMP_CONSTRUCT] == design.asParts[COMP_CONSTRUCT]
-			    && psDestTemplate->asParts[COMP_BRAIN] == design.asParts[COMP_BRAIN])
-			{
-				break;
-			}
 			psDestTemplate = nullptr;
-		}
-		if (psDestTemplate)
-		{
-			// we found a duplicate
-			if (designHashAdded)
-			{
-				debug(LOG_ERROR, "1- designHash was added, but total hash is duplicate %s", design.name.toUtf8().c_str());
-			}
-			psDestTemplate->stored = true; // assimilate it
 			continue; // next!
 		}
-		// never encountered before: add it
-		if (!designHashAdded)
-		{
-			debug(LOG_ERROR, "2- designHash was not added, but total hash is new %s", design.name.toUtf8().c_str());
-		}
+		// check for duplicates...
+		// for (auto &keyvaluepair : droidTemplates[selectedPlayer])
+		// {
+		// 	psDestTemplate = keyvaluepair.second.get();
+		// 	// Check if template is identical to a loaded template
+		// 	if (psDestTemplate->droidType == design.droidType
+		// 	    && psDestTemplate->name.compare(design.name) == 0
+		// 	    && psDestTemplate->numWeaps == design.numWeaps
+		// 	    && psDestTemplate->asWeaps[0] == design.asWeaps[0]
+		// 	    && psDestTemplate->asWeaps[1] == design.asWeaps[1]
+		// 	    && psDestTemplate->asWeaps[2] == design.asWeaps[2]
+		// 	    && psDestTemplate->asParts[COMP_BODY] == design.asParts[COMP_BODY]
+		// 	    && psDestTemplate->asParts[COMP_PROPULSION] == design.asParts[COMP_PROPULSION]
+		// 	    && psDestTemplate->asParts[COMP_REPAIRUNIT] == design.asParts[COMP_REPAIRUNIT]
+		// 	    && psDestTemplate->asParts[COMP_ECM] == design.asParts[COMP_ECM]
+		// 	    && psDestTemplate->asParts[COMP_SENSOR] == design.asParts[COMP_SENSOR]
+		// 	    && psDestTemplate->asParts[COMP_CONSTRUCT] == design.asParts[COMP_CONSTRUCT]
+		// 	    && psDestTemplate->asParts[COMP_BRAIN] == design.asParts[COMP_BRAIN])
+		// 	{
+		// 		break;
+		// 	}
+		// 	psDestTemplate = nullptr;
+		// }
+		psDestTemplate->stored = true; // assimilate it
 		design.enabled = allowDesign;
 		copyTemplate(selectedPlayer, &design);
 		localTemplates.push_back(design);
@@ -661,24 +664,54 @@ DROID_TEMPLATE *copyTemplate(int player, DROID_TEMPLATE *psTemplate)
 	return addTemplate(player, std::move(dup));
 }
 
+
+/*bool addKnownTemplate(TemplateHash_t hash, int player)
+{
+	bool out = false;
+	auto it = knownTemplates[player].find(hash);
+	if (it != knownTemplates[player].end())
+	{
+		knownTemplates[player].emplace(hash);
+		out = true;
+	} else
+	{
+		//debug(LOG_INFO, "duplicate wasn't inserted %u;%s;%i;%i", 
+		//	hash, droidTemplates[player][multiPlayerID]->name.toUtf8().c_str(), 
+		//	droidTemplates[player][multiPlayerID]->multiPlayerID);
+	}
+	return out;
+}*/
+
 DROID_TEMPLATE* addTemplate(int player, std::unique_ptr<DROID_TEMPLATE> psTemplate)
 {
 	ASSERT_PLAYER_OR_RETURN(nullptr, player);
-	UDWORD multiPlayerID = psTemplate->multiPlayerID;
-	auto it = droidTemplates[player].find(multiPlayerID);
-	if (it != droidTemplates[player].end())
+	//UDWORD multiPlayerID = psTemplate->multiPlayerID;
+	const auto hash = psTemplate->templateHash; 
+	DROID_TEMPLATE* out = nullptr;
 	{
-		// replacing existing template
-		it->second.swap(psTemplate);
-		replacedDroidTemplates[player].push_back(std::move(psTemplate));
-		return it->second.get();
+		//auto it = droidTemplates[player].find(multiPlayerID);
+		auto it = droidTemplates[player].find(hash);
+		if (it != droidTemplates[player].end())
+		{
+			// replacing existing template
+			// only used for renaming...
+			it->second.swap(psTemplate);
+			debug(LOG_INFO, "replaced template %i;%s;<-%i;%s;", 
+				it->second->templateHash, it->second->name.toUtf8().c_str(),
+				psTemplate->templateHash, psTemplate->name.toUtf8().c_str());
+			replacedDroidTemplates[player].push_back(std::move(psTemplate));
+			out = it->second.get();
+		}
+		else
+		{
+			// new template
+			//auto result = droidTemplates[player].insert(std::pair<UDWORD, std::unique_ptr<DROID_TEMPLATE>>(multiPlayerID, std::move(psTemplate)));
+			auto result = droidTemplates[player].insert(std::pair<UDWORD, std::unique_ptr<DROID_TEMPLATE>>(hash, std::move(psTemplate)));
+			out = result.first->second.get();
+		}
 	}
-	else
-	{
-		// new template
-		auto result = droidTemplates[player].insert(std::pair<UDWORD, std::unique_ptr<DROID_TEMPLATE>>(multiPlayerID, std::move(psTemplate)));
-		return result.first->second.get();
-	}
+	//addKnownTemplate(hash, player);
+	return out;
 }
 
 void enumerateTemplates(int player, const std::function<bool (DROID_TEMPLATE* psTemplate)>& func)
@@ -921,10 +954,3 @@ void checkPlayerBuiltHQ(const STRUCTURE *psStruct)
 		playerBuiltHQ = true;
 	}
 }
-
-static std::unordered_map<uint64_t, std::string> templateNames;
-/// Template names are immutable, and cannot be changed during runtime
-/*const &std::string templateGetName(uint64_t templateHash)
-{
-
-}*/
