@@ -1613,7 +1613,7 @@ static optional<FileLoadResult<Feature>> loadBJOFeatureInit(const std::string& f
 		if (player != mapMaxPlayers)
 		{
 			// Since the prior code did not actually utilize this value, just check and print a warning (for now) if we are ignoring it
-			debug(pCustomLogger, LOG_WARNING, "%s: Ignoring player(%" PRIi32 ") for feature %" PRIu32 "", path, player, i);
+			//debug(pCustomLogger, LOG_WARNING, "%s: Ignoring player(%" PRIi32 ") for feature %" PRIu32 "", path, player, i);
 		}
 		// check inFire
 		if (inFire != 0)
