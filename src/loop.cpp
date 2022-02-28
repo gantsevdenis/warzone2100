@@ -552,20 +552,28 @@ static void gameStateUpdate()
 	{
 		//update the current power available for a player
 		updatePlayerPower(i);
-
+		//debug(LOG_INFO, "iterating over apsDroidLists");
 		DROID *psNext;
 		for (DROID *psCurr = apsDroidLists[i]; psCurr != nullptr; psCurr = psNext)
 		{
 			// Copy the next pointer - not 100% sure if the droid could get destroyed but this covers us anyway
 			psNext = psCurr->psNext;
+			if (isTransporter(psCurr))
+			{
+				debug(LOG_INFO, "updating transport %i", psCurr->id);
+			}
 			droidUpdate(psCurr);
 		}
-
+		//debug(LOG_INFO, "iterating over mission.apsDroidLists");
 		for (DROID *psCurr = mission.apsDroidLists[i]; psCurr != nullptr; psCurr = psNext)
 		{
 			/* Copy the next pointer - not 100% sure if the droid could
 			get destroyed but this covers us anyway */
 			psNext = psCurr->psNext;
+			if (isTransporter(psCurr))
+			{
+				debug(LOG_INFO, "updating transport %i", psCurr->id);
+			}
 			missionDroidUpdate(psCurr);
 		}
 

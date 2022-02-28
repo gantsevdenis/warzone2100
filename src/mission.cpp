@@ -1521,15 +1521,12 @@ void missionDroidUpdate(DROID *psDroid)
 	/*This is required for Transporters that are moved offWorld so the
 	saveGame doesn't try to set their position in the map - especially important
 	for endCam2 where there isn't a valid map!*/
-	if (isTransporter(psDroid))
-	{
-		psDroid->pos.x = INVALID_XY;
-		psDroid->pos.y = INVALID_XY;
-	}
-
+	if (!isTransporter(psDroid)) return;
+	psDroid->pos.x = INVALID_XY;
+	psDroid->pos.y = INVALID_XY;
+	debug(LOG_INFO, "updating transporter %s;%i",  getDroidActionName(psDroid->action), psDroid->id);
 	//ignore all droids except Transporters
-	if (!isTransporter(psDroid)
-	    || !(orderState(psDroid, DORDER_TRANSPORTOUT)  ||
+	if (!(orderState(psDroid, DORDER_TRANSPORTOUT)  ||
 	         orderState(psDroid, DORDER_TRANSPORTIN)     ||
 	         orderState(psDroid, DORDER_TRANSPORTRETURN)))
 	{
@@ -1546,6 +1543,7 @@ void missionDroidUpdate(DROID *psDroid)
 
 	//NO move update
 }
+
 
 // Reset variables in Droids such as order and position
 static void missionResetDroids()
