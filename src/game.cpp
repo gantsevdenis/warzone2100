@@ -5389,6 +5389,7 @@ static bool loadSaveDroid(const char *pFileName, DROID **ppsCurrentDroidLists)
 		debug(LOG_SAVE, "No %s found -- use fallback method", pFileName);
 		return false;	// try to use fallback method
 	}
+	debug(LOG_INFO, "loading %s", pFileName);
 	WzString fName = WzString::fromUtf8(pFileName);
 	WzConfig ini(fName, WzConfig::ReadOnly);
 	std::vector<WzString> list = ini.childGroups();
@@ -5491,6 +5492,7 @@ static bool loadSaveDroid(const char *pFileName, DROID **ppsCurrentDroidLists)
 		{
 			psDroid->id = id; // force correct ID, unless ID is set to eg -1, in which case we should keep new ID (useful for starting units in campaign)
 		}
+		debug(LOG_INFO, "loaded droid %i;%s", psDroid->id, psDroid->aName);
 		ASSERT(id != 0, "Droid ID should never be zero here");
 		// conditional check so that existing saved games don't break
 		if (ini.contains("originalBody"))
@@ -5610,6 +5612,7 @@ static bool loadSaveDroid(const char *pFileName, DROID **ppsCurrentDroidLists)
 
 		if (psDroid->psGroup == nullptr || psDroid->psGroup->type != GT_TRANSPORTER || isTransporter(psDroid))  // do not add to list if on a transport, then the group list is used instead
 		{
+			debug(LOG_INFO, "adding droid %i;%s", psDroid->id, psDroid->aName);
 			addDroid(psDroid, ppsCurrentDroidLists);
 		}
 
