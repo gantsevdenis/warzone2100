@@ -238,8 +238,11 @@ bool getWeaponClass(const WzString& weaponClassStr, WEAPON_CLASS *weaponClass);
 
 /** If object is an active radar (has sensor turret), then return a pointer to its sensor stats. If not, return NULL. */
 WZ_DECL_PURE SENSOR_STATS *objActiveRadar(const BASE_OBJECT *psObj);
+WZ_DECL_PURE SENSOR_STATS *objActiveRadar(const DROID *psObj);
+WZ_DECL_PURE SENSOR_STATS *objActiveRadar(const STRUCTURE *psObj);
 
 /** Returns whether object has a radar detector sensor. */
-WZ_DECL_PURE bool objRadarDetector(const BASE_OBJECT *psObj);
-
+WZ_DECL_PURE bool objRadarDetector(const DROID *);
+WZ_DECL_PURE bool objRadarDetector(const STRUCTURE *psObj);
+WZ_DECL_PURE bool objRadarDetector(const BASE_OBJECT *psObj); // should be gone..
 #endif // __INCLUDED_SRC_STATS_H__

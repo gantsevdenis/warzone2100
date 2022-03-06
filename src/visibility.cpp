@@ -618,7 +618,8 @@ STRUCTURE *visGetBlockingWall(const BASE_OBJECT *psViewer, const BASE_OBJECT *ps
 	// HACK Using globals to not clutter visibleObject() interface too much
 	gNumWalls = &numWalls;
 	gWall = &wall;
-
+	
+	// FIXME: the result is discarded??
 	visibleObject(psViewer, psTarget, true);
 
 	gNumWalls = nullptr;

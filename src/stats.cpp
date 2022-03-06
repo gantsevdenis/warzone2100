@@ -1657,6 +1657,29 @@ bool objHasWeapon(const BASE_OBJECT *psObj)
 	return false;
 }
 
+SENSOR_STATS *objActiveRadar(const DROID *psObj)
+{
+	SENSOR_STATS	*psStats = nullptr;
+	int				compIndex;
+	if (((const DROID *)psObj)->droidType != DROID_SENSOR && ((const DROID *)psObj)->droidType != DROID_COMMAND)
+	{
+		return nullptr;
+	}
+	compIndex = ((const DROID *)psObj)->asBits[COMP_SENSOR];
+	ASSERT_OR_RETURN(nullptr, compIndex < numSensorStats, "Invalid range referenced for numSensorStats, %d > %d", compIndex, numSensorStats);
+	psStats = asSensorStats + compIndex;
+	return psStats;
+}
+SENSOR_STATS *objActiveRadar(const STRUCTURE *psObj)
+{
+	SENSOR_STATS	*psStats = nullptr;
+	psStats = ((const STRUCTURE *)psObj)->pStructureType->pSensor;
+	if (psStats == nullptr || psStats->location != LOC_TURRET || ((const STRUCTURE *)psObj)->status != SS_BUILT)
+	{
+		return nullptr;
+	}
+	return psStats;
+}
 SENSOR_STATS *objActiveRadar(const BASE_OBJECT *psObj)
 {
 	SENSOR_STATS	*psStats = nullptr;
@@ -1685,21 +1708,27 @@ SENSOR_STATS *objActiveRadar(const BASE_OBJECT *psObj)
 	}
 	return psStats;
 }
-
+bool objRadarDetector(const DROID *psDroid)
+{
+	SENSOR_STATS *psSensor = getSensorStats(psDroid);
+	return (psSensor && psSensor->type == RADAR_DETECTOR_SENSOR);
+}
+bool objRadarDetector(const STRUCTURE *psStruct)
+{
+	return (psStruct->status == SS_BUILT && psStruct->pStructureType->pSensor && psStruct->pStructureType->pSensor->type == RADAR_DETECTOR_SENSOR);	
+}
 bool objRadarDetector(const BASE_OBJECT *psObj)
 {
 	if (psObj->type == OBJ_STRUCTURE)
 	{
-		const STRUCTURE *psStruct = (const STRUCTURE *)psObj;
-
-		return (psStruct->status == SS_BUILT && psStruct->pStructureType->pSensor && psStruct->pStructureType->pSensor->type == RADAR_DETECTOR_SENSOR);
+	        const STRUCTURE *psStruct = (const STRUCTURE *)psObj;
+	        return (psStruct->status == SS_BUILT && psStruct->pStructureType->pSensor && psStruct->pStructureType->pSensor->type == RADAR_DETECTOR_SENSOR);
 	}
 	else if (psObj->type == OBJ_DROID)
 	{
-		const DROID *psDroid = (const DROID *)psObj;
-		SENSOR_STATS *psSensor = getSensorStats(psDroid);
-
-		return (psSensor && psSensor->type == RADAR_DETECTOR_SENSOR);
+	        const DROID *psDroid = (const DROID *)psObj;
+	        SENSOR_STATS *psSensor = getSensorStats(psDroid);
+	        return (psSensor && psSensor->type == RADAR_DETECTOR_SENSOR);
 	}
 	return false;
 }

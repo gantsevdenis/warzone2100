@@ -66,7 +66,15 @@ bool combFire(WEAPON *psWeap, BASE_OBJECT *psAttacker, BASE_OBJECT *psTarget, in
 	psStats = asWeaponStats + compIndex;
 
 	// check valid weapon/prop combination
-	if (!validTarget(psAttacker, psTarget, weapon_slot))
+	if (psAttacker->type == OBJ_DROID)
+	{
+		if (!validTarget(static_cast<const DROID*>(psAttacker), psTarget, weapon_slot))
+		{
+			return false;
+		}
+	}
+	// must be structure
+	else if (!validTarget(static_cast<const STRUCTURE*>(psAttacker), psTarget, weapon_slot))
 	{
 		return false;
 	}
