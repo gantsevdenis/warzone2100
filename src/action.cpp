@@ -45,7 +45,7 @@
 #include "objmem.h"
 #include "move.h"
 #include "cmddroid.h"
-
+#include "behavior/fsm.h"
 /* attack run distance */
 #define	VTOL_ATTACK_LENGTH		1000
 #define VTOL_ATTACK_TARDIST		400
@@ -2212,7 +2212,7 @@ static void actionDroidBase(DROID *psDroid, DROID_ACTION_DATA *psAction)
 	Vector2i pos(0, 0);
 
 	CHECK_DROID(psDroid);
-
+	FSM::AttackNone attackNone;
 	bool secHoldActive = secondaryGetState(psDroid, DSO_HALTTYPE) == DSS_HALT_HOLD;
 	bool actionIsInRange = false;
 	psDroid->actionStarted = gameTime;
