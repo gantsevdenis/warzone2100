@@ -27,7 +27,10 @@
 #include "lib/framework/vector.h"
 
 #include <vector>
-
+// Check if a droid has stopped moving
+#define DROID_STOPPED(psDroid) \
+	(psDroid->sMove.Status == MOVEINACTIVE || psDroid->sMove.Status == MOVEHOVER || \
+	 psDroid->sMove.Status == MOVESHUFFLE)
 enum MOVE_STATUS
 {
 	MOVEINACTIVE,

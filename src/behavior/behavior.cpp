@@ -5,7 +5,7 @@
 #include "../move.h"
 #include "../ai.h"
 #include "../qtscript.h"
-#include "stateregistry.h"
+//#include "stateregistry.h"
 #include <memory>
 #include <stdexcept>
 /*
@@ -38,29 +38,6 @@ namespace FSM
     const MoveWaitForRepair MoveWaitForRepairInstance;
     const MoveGuard MoveGuardInstance;
     const MoveTransportWaitToFlyIn MoveTransportWaitToFlyInInstance;
-    // see if we can attack something & set targets for each weapon
-
-    void alignWeapons(DROID& droid)
-    {
-        for (unsigned i = 0; i < psDroid->numWeaps; ++i)
-        {
-            if (psDroid->asWeaps[i].rot.direction != 0 || psDroid->asWeaps[i].rot.pitch != 0)
-            {
-                actionAlignTurret(psDroid, i);
-            }
-        }
-    }
-    void setTargetsToNull(DROID& droid)
-    {
-        DROID *psDroid = &droid;
-        for (int i = 0; i < psDroid->numWeaps; i++)
-        {
-            setDroidActionTarget(psDroid, nullptr, i);
-        }
-    }
-
-
-
     // ========================================================================================================================
     // ================= ATTACK related behavior ==============================================================================
     // ========================================================================================================================
@@ -78,13 +55,14 @@ namespace FSM
             if (attack) return AttackInstance;
             return AttackNoneInstance;
         }
-
+        // fixme
+        return AttackNoneInstance;
     }
 	void AttackNone_OnExit(DROID& droid) {};
 
 	void AttackReturnToPos_OnEntry(DROID& droid)
     {
-
+        AttackNoneInstance;
     }
 	const MoveBase& AttackReturnToPos_OnTick(DROID& droid)
     {
@@ -116,6 +94,8 @@ namespace FSM
 		{
 			return MoveNoneInstance;
 		}
+        // fixme
+        return MoveNoneInstance;
     }
 	void MoveReturnToPos_OnExit(DROID&);
 	void Move_OnEntry(DROID& droid)

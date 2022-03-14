@@ -76,11 +76,6 @@ struct DROID_ACTION_DATA
 	BASE_STATS		*psStats;
 };
 
-// Check if a droid has stopped moving
-#define DROID_STOPPED(psDroid) \
-	(psDroid->sMove.Status == MOVEINACTIVE || psDroid->sMove.Status == MOVEHOVER || \
-	 psDroid->sMove.Status == MOVESHUFFLE)
-
 /** Radius for search when looking for VTOL landing position */
 static const int vtolLandingRadius = 23;
 
@@ -2817,4 +2812,125 @@ bool actionVTOLLandingPos(DROID const *psDroid, Vector2i *p)
 	}
 
 	return foundTile;
+}
+
+/* Update a construction droid while it is building
+   returns true while building continues */
+bool droidUpdateBuild(DROID *psDroid)
+{
+	CHECK_DROID(psDroid);
+	ASSERT_OR_RETURN(false, psDroid->action == DACTION_BUILD, "%s (order %s) has wrong action for construction: %s",
+					 droidGetName(psDroid), getDroidOrderName(psDroid->order.type), getDroidActionName(psDroid->action));
+
+	STRUCTURE *psStruct = castStructure(psDroid->order.psObj);
+	if (psStruct == nullptr)
+	{
+		// Target missing, stop trying to build it.
+		psDroid->action = DACTION_NONE;
+		return false;
+	}
+
+	ASSERT_OR_RETURN(false, psStruct->type == OBJ_STRUCTURE, "target is not a structure");
+	ASSERT_OR_RETURN(false, psDroid->asBits[COMP_CONSTRUCT] < numConstructStats, "Invalid construct pointer for unit");
+
+	// First check the structure hasn't been completed by another droid
+	if (psStruct->status == SS_BUILT)
+	{
+		// Check if line order build is completed, or we are not carrying out a line order build
+		if (psDroid->order.type != DORDER_LINEBUILD ||
+			map_coord(psDroid->order.pos) == map_coord(psDroid->order.pos2))
+		{
+			cancelBuild(psDroid);
+		}
+		else
+		{
+			psDroid->action = DACTION_NONE;	// make us continue line build
+			setDroidTarget(psDroid, nullptr);
+			setDroidActionTarget(psDroid, nullptr, 0);
+		}
+		return false;
+	}
+
+	// make sure we still 'own' the building in question
+	if (!aiCheckAlliances(psStruct->player, psDroid->player))
+	{
+		cancelBuild(psDroid);		// stop what you are doing fool it isn't ours anymore!
+		return false;
+	}
+
+	unsigned constructPoints = constructorPoints(asConstructStats + psDroid->
+										asBits[COMP_CONSTRUCT], psDroid->player);
+
+	unsigned pointsToAdd = constructPoints * (gameTime - psDroid->actionStarted) /
+				  GAME_TICKS_PER_SEC;
+
+	structureBuild(psStruct, psDroid, pointsToAdd - psDroid->actionPoints, constructPoints);
+
+	//store the amount just added
+	psDroid->actionPoints = pointsToAdd;
+
+	addConstructorEffect(psStruct);
+
+	return true;
+}
+
+static bool isRepairlikeAction(DROID_ACTION action)
+{
+	switch (action)
+	{
+		case DACTION_BUILD:
+		case DACTION_BUILDWANDER:
+		case DACTION_DEMOLISH:
+		case DACTION_DROIDREPAIR:
+		case DACTION_MOVETOBUILD:
+		case DACTION_MOVETODEMOLISH:
+		case DACTION_MOVETODROIDREPAIR:
+		case DACTION_MOVETOREPAIR:
+		case DACTION_MOVETORESTORE:
+		case DACTION_REPAIR:
+		case DACTION_RESTORE:
+			return true;
+		default:
+			return false;
+	}
+}
+
+bool tryDoRepairlikeAction(DROID *psDroid)
+{
+	if (isRepairlikeAction(psDroid->action))
+	{
+		return true;  // Already doing something.
+	}
+
+	switch (psDroid->droidType)
+	{
+		case DROID_REPAIR:
+		case DROID_CYBORG_REPAIR:
+			//repair droids default to repairing droids within a given range
+			if (DROID *repairTarget = checkForRepairRange(psDroid))
+			{
+				actionDroid(psDroid, DACTION_DROIDREPAIR, repairTarget);
+			}
+			break;
+		case DROID_CONSTRUCT:
+		case DROID_CYBORG_CONSTRUCT:
+		{
+			//construct droids default to repairing and helping structures within a given range
+			auto damaged = checkForDamagedStruct(psDroid);
+			if (damaged.second == DACTION_REPAIR)
+			{
+				actionDroid(psDroid, damaged.second, damaged.first);
+			}
+			else if (damaged.second == DACTION_BUILD)
+			{
+				psDroid->order.psStats = damaged.first->pStructureType;
+				psDroid->order.direction = damaged.first->rot.direction;
+				actionDroid(psDroid, damaged.second, damaged.first->pos.x, damaged.first->pos.y);
+			}
+			break;
+		}
+		default:
+			return false;
+	}
+	return true;
 }

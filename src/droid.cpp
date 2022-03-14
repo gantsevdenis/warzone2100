@@ -1031,65 +1031,7 @@ static void addConstructorEffect(STRUCTURE *psStruct)
 	}
 }
 
-/* Update a construction droid while it is building
-   returns true while building continues */
-bool droidUpdateBuild(DROID *psDroid)
-{
-	CHECK_DROID(psDroid);
-	ASSERT_OR_RETURN(false, psDroid->action == DACTION_BUILD, "%s (order %s) has wrong action for construction: %s",
-					 droidGetName(psDroid), getDroidOrderName(psDroid->order.type), getDroidActionName(psDroid->action));
 
-	STRUCTURE *psStruct = castStructure(psDroid->order.psObj);
-	if (psStruct == nullptr)
-	{
-		// Target missing, stop trying to build it.
-		psDroid->action = DACTION_NONE;
-		return false;
-	}
-
-	ASSERT_OR_RETURN(false, psStruct->type == OBJ_STRUCTURE, "target is not a structure");
-	ASSERT_OR_RETURN(false, psDroid->asBits[COMP_CONSTRUCT] < numConstructStats, "Invalid construct pointer for unit");
-
-	// First check the structure hasn't been completed by another droid
-	if (psStruct->status == SS_BUILT)
-	{
-		// Check if line order build is completed, or we are not carrying out a line order build
-		if (psDroid->order.type != DORDER_LINEBUILD ||
-			map_coord(psDroid->order.pos) == map_coord(psDroid->order.pos2))
-		{
-			cancelBuild(psDroid);
-		}
-		else
-		{
-			psDroid->action = DACTION_NONE;	// make us continue line build
-			setDroidTarget(psDroid, nullptr);
-			setDroidActionTarget(psDroid, nullptr, 0);
-		}
-		return false;
-	}
-
-	// make sure we still 'own' the building in question
-	if (!aiCheckAlliances(psStruct->player, psDroid->player))
-	{
-		cancelBuild(psDroid);		// stop what you are doing fool it isn't ours anymore!
-		return false;
-	}
-
-	unsigned constructPoints = constructorPoints(asConstructStats + psDroid->
-										asBits[COMP_CONSTRUCT], psDroid->player);
-
-	unsigned pointsToAdd = constructPoints * (gameTime - psDroid->actionStarted) /
-				  GAME_TICKS_PER_SEC;
-
-	structureBuild(psStruct, psDroid, pointsToAdd - psDroid->actionPoints, constructPoints);
-
-	//store the amount just added
-	psDroid->actionPoints = pointsToAdd;
-
-	addConstructorEffect(psStruct);
-
-	return true;
-}
 
 bool droidUpdateDemolishing(DROID *psDroid)
 {

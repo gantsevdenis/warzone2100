@@ -104,6 +104,12 @@ void moveToRearm(DROID *psDroid);
 /** Choose a landing position for a VTOL when it goes to rearm. */
 bool actionVTOLLandingPos(DROID const *psDroid, Vector2i *p);
 
+bool tryDoRepairlikeAction(DROID *psDroid);
+
+/* Update a construction droid while it is building
+   returns true while building continues */
+bool droidUpdateBuild(DROID *psDroid);
+
 /** How many frames to skip before looking for a better target. */
 #define TARGET_UPD_SKIP_FRAMES 1000
 

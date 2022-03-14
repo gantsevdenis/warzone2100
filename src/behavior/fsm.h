@@ -8,12 +8,17 @@
 #include <cstddef>
 #include <string>*/
 #include "../basedef.h"
-//#include "droiddef.h"
+#include "../droiddef.h"
 typedef size_t StateIdx;
 
 struct DROID;
 struct STRUCTURE;
-
+/*
+We want to have separated SM for each droid type so that their behavior
+doesn't overlap, and it's easier to debug/extend/reassign at runtime
+Each *_OnTick can only return another state from the same State Machine
+Some StateMachines may use memory to remember what as previous, and return to it
+*/
 
 namespace FSM
 {
@@ -155,31 +160,7 @@ namespace FSM
 		UID_DECL();
 		BODY_DECL(Attack, GroundAttackBase);
 	};
-    bool anythingToShoot(DROID& droid)
-    {
-        DROID *psDroid = &droid;
-        DROID_ORDER_DATA *order = &psDroid->order;
-        bool attack = false;
-        for (unsigned i = 0; i < psDroid->numWeaps; ++i)
-        {
-            if (psDroid->asWeaps[i].nStat > 0)
-            {
-                BASE_OBJECT *psTemp = nullptr;
-
-                WEAPON_STATS *const psWeapStats = &asWeaponStats[psDroid->asWeaps[i].nStat];
-                if (psWeapStats->rotate && aiBestNearestTarget(psDroid, &psTemp, i) >= 0)
-                {
-                    setDroidActionTarget(psDroid, psTemp, i);
-                    attack = true;
-                    /*if (secondaryGetState(psDroid, DSO_ATTACK_LEVEL) == DSS_ALEV_ALWAYS)
-                    {
-
-                    }*/
-                }
-            }
-        }
-        return attack;
-    }
+	bool anythingToShoot(DROID& droid);
     // extern const MoveNone* MoveNoneInstance;
     // extern const Attack* AttackInstance;
     // extern const AttackNone* AttackNoneInstance;

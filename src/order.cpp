@@ -254,67 +254,6 @@ static std::pair<STRUCTURE *, DROID_ACTION> checkForDamagedStruct(DROID *psDroid
 	return best;
 }
 
-static bool isRepairlikeAction(DROID_ACTION action)
-{
-	switch (action)
-	{
-		case DACTION_BUILD:
-		case DACTION_BUILDWANDER:
-		case DACTION_DEMOLISH:
-		case DACTION_DROIDREPAIR:
-		case DACTION_MOVETOBUILD:
-		case DACTION_MOVETODEMOLISH:
-		case DACTION_MOVETODROIDREPAIR:
-		case DACTION_MOVETOREPAIR:
-		case DACTION_MOVETORESTORE:
-		case DACTION_REPAIR:
-		case DACTION_RESTORE:
-			return true;
-		default:
-			return false;
-	}
-}
-
-static bool tryDoRepairlikeAction(DROID *psDroid)
-{
-	if (isRepairlikeAction(psDroid->action))
-	{
-		return true;  // Already doing something.
-	}
-
-	switch (psDroid->droidType)
-	{
-		case DROID_REPAIR:
-		case DROID_CYBORG_REPAIR:
-			//repair droids default to repairing droids within a given range
-			if (DROID *repairTarget = checkForRepairRange(psDroid))
-			{
-				actionDroid(psDroid, DACTION_DROIDREPAIR, repairTarget);
-			}
-			break;
-		case DROID_CONSTRUCT:
-		case DROID_CYBORG_CONSTRUCT:
-		{
-			//construct droids default to repairing and helping structures within a given range
-			auto damaged = checkForDamagedStruct(psDroid);
-			if (damaged.second == DACTION_REPAIR)
-			{
-				actionDroid(psDroid, damaged.second, damaged.first);
-			}
-			else if (damaged.second == DACTION_BUILD)
-			{
-				psDroid->order.psStats = damaged.first->pStructureType;
-				psDroid->order.direction = damaged.first->rot.direction;
-				actionDroid(psDroid, damaged.second, damaged.first->pos.x, damaged.first->pos.y);
-			}
-			break;
-		}
-		default:
-			return false;
-	}
-	return true;
-}
-
 /** This function updates all the orders status, according with psdroid's current order and state.
  */
 void orderUpdateDroid(DROID *psDroid)

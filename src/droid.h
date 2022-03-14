@@ -136,9 +136,6 @@ bool droidUpdateRepair(DROID *psDroid);
 /*Updates a Repair Droid working on a damaged droid - returns true whilst repairing*/
 bool droidUpdateDroidRepair(DROID *psRepairDroid);
 
-/* Update a construction droid while it is building
-   returns true while building continues */
-bool droidUpdateBuild(DROID *psDroid);
 
 /*continue restoring a structure*/
 bool droidUpdateRestore(DROID *psDroid);
