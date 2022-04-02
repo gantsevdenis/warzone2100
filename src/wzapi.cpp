@@ -390,8 +390,19 @@ bool wzapi::setAssemblyPoint(WZAPI_PARAMS(STRUCTURE *psStruct, int x, int y))
 	SCRIPT_ASSERT(false, context, psStruct, "No valid structure provided");
 	SCRIPT_ASSERT(false, context, psStruct->pStructureType->type == REF_FACTORY
 	              || psStruct->pStructureType->type == REF_CYBORG_FACTORY
-	              || psStruct->pStructureType->type == REF_VTOL_FACTORY, "Structure not a factory");
-	setAssemblyPoint(((FACTORY *)psStruct->pFunctionality)->psAssemblyPoint, x, y, psStruct->player, true);
+	              || psStruct->pStructureType->type == REF_VTOL_FACTORY
+				  || psStruct->pStructureType->type == REF_REPAIR_FACILITY, "Structure not a factory, nor Repair Facility");
+	if (psStruct->pStructureType->type == REF_FACTORY
+	              || psStruct->pStructureType->type == REF_CYBORG_FACTORY
+	              || psStruct->pStructureType->type == REF_VTOL_FACTORY)
+	{
+		setAssemblyPoint(((FACTORY *)psStruct->pFunctionality)->psAssemblyPoint, x, y, psStruct->player, true);	
+	}
+	else
+	{
+		auto psRepair = ((REPAIR_FACILITY *)psStruct->pFunctionality);
+		setAssemblyPoint(psRepair->psDeliveryPoint, x, y, psStruct->player, true);
+	}
 	return true;
 }
 
@@ -676,6 +687,59 @@ bool wzapi::setRevealStatus(WZAPI_PARAMS(bool status))
 {
 	::setRevealStatus(status);
 	preProcessVisibility();
+	return true;
+}
+
+//-- ## toggleGodMode()
+//--
+//-- Visible everything
+//--
+bool wzapi::toggleGodMode()
+{
+	static bool pastReveal = true;
+	if (godMode)
+	{
+		FEATURE	*psFeat = apsFeatureLists[0];
+
+		godMode = false;
+		::setRevealStatus(pastReveal);
+		// now hide the features
+		while (psFeat)
+		{
+			psFeat->visible[selectedPlayer] = 0;
+			psFeat = psFeat->psNext;
+		}
+
+		// and the structures
+		for (unsigned playerId = 0; playerId < MAX_PLAYERS; ++playerId)
+		{
+			if (playerId != selectedPlayer)
+			{
+				STRUCTURE *psStruct = apsStructLists[playerId];
+
+				while (psStruct)
+				{
+					psStruct->visible[selectedPlayer] = 0;
+					psStruct = psStruct->psNext;
+				}
+			}
+		}
+		// remove all proximity messages
+		releaseAllProxDisp();
+		radarPermitted = structureExists(selectedPlayer, REF_HQ, true, false) || structureExists(selectedPlayer, REF_HQ, true, true);
+	}
+	else
+	{
+		godMode = true; // view all structures and droids
+		revealAll(selectedPlayer);
+		pastReveal = ::getRevealStatus();
+		::setRevealStatus(true); // view the entire map
+		radarPermitted = true; //add minimap without CC building
+	}
+
+	std::string cmsg = astringf(_("(Player %u) is using cheat :%s"),
+	          selectedPlayer, godMode ? _("God Mode ON") : _("God Mode OFF"));
+	sendInGameSystemMessage(cmsg.c_str());
 	return true;
 }
 
@@ -3012,12 +3076,13 @@ unsigned int wzapi::getStructureLimit(WZAPI_PARAMS(std::string structureName, op
 //-- ## countStruct(structureName[, playerFilter])
 //--
 //-- Count the number of structures of a given type.
-//-- The playerFilter parameter can be a specific player, ```ALL_PLAYERS```, ```ALLIES``` or ```ENEMIES```.
+//-- The player parameter can be a specific player, ALL_PLAYERS, ALLIES or ENEMIES.
+//-- Gets called for endgame condition check (0 => game ends) 
 //--
 int wzapi::countStruct(WZAPI_PARAMS(std::string structureName, optional<int> _playerFilter))
 {
-	int structureIndex = getStructStatFromName(WzString::fromUtf8(structureName.c_str()));
-	SCRIPT_ASSERT(-1, context, structureIndex >= 0 && structureIndex < numStructureStats, "Structure %s not found", structureName.c_str());
+	int index = getStructStatFromName(WzString::fromUtf8(structureName.c_str()));
+	SCRIPT_ASSERT(-1, context, index < numStructureStats && index >= 0, "Structure %s not found", structureName.c_str());
 	int me = context.player();
 	int playerFilter = _playerFilter.value_or(me);
 	SCRIPT_ASSERT(-1, context, (playerFilter >= 0 && playerFilter < MAX_PLAYERS) || playerFilter == ALL_PLAYERS || playerFilter == ALLIES || playerFilter == ENEMIES, "Player filter index out of range: %d", playerFilter);

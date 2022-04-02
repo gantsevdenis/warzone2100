@@ -1294,49 +1294,7 @@ void	kf_ToggleGodMode()
 		return;
 	}
 #endif
-
-	if (godMode)
-	{
-		ASSERT_OR_RETURN(, selectedPlayer < MAX_PLAYERS, "Cannot disable godMode for spectator-only slots");
-
-		FEATURE	*psFeat = apsFeatureLists[0];
-
-		godMode = false;
-		setRevealStatus(pastReveal);
-		// now hide the features
-		while (psFeat)
-		{
-			psFeat->visible[selectedPlayer] = 0;
-			psFeat = psFeat->psNext;
-		}
-
-		// and the structures
-		for (unsigned playerId = 0; playerId < MAX_PLAYERS; ++playerId)
-		{
-			if (playerId != selectedPlayer)
-			{
-				STRUCTURE *psStruct = apsStructLists[playerId];
-
-				while (psStruct)
-				{
-					psStruct->visible[selectedPlayer] = 0;
-					psStruct = psStruct->psNext;
-				}
-			}
-		}
-		// remove all proximity messages
-		releaseAllProxDisp();
-		radarPermitted = structureExists(selectedPlayer, REF_HQ, true, false) || structureExists(selectedPlayer, REF_HQ, true, true);
-	}
-	else
-	{
-		pastReveal = getRevealStatus();
-		enableGodMode();
-	}
-
-	std::string cmsg = astringf(_("(Player %u) is using cheat :%s"),
-	          selectedPlayer, godMode ? _("God Mode ON") : _("God Mode OFF"));
-	sendInGameSystemMessage(cmsg.c_str());
+	wzapi::toggleGodMode();
 }
 // --------------------------------------------------------------------------
 /* Aligns the view to north - some people can't handle the world spinning */
@@ -2372,7 +2330,44 @@ static void tryChangeSpeed(Rational newMod, Rational oldMod)
 	}
 	gameTimeSetMod(newMod);
 }
+static void doChangeSpeed(Rational newMod, Rational oldMod)
+{
+	char modString[30];
+	if (newMod.d != 1)
+	{
+		const float speed = float(newMod.n) / newMod.d;
+		if (speed > 0.4)
+		{
+			ssprintf(modString, "%.1f", speed);
+		}
+		else if (speed > 0.15)
+		{
+			ssprintf(modString, "%.2f", speed);
+		}
+		else
+		{
+			ssprintf(modString, "%.3f", speed);
+		}
+	}
+	else
+	{
+		ssprintf(modString, "%d", newMod.n);
+	}
 
+	if (newMod == 1)
+	{
+		CONPRINTF("%s", _("Game Speed Reset"));
+	}
+	else if (newMod > oldMod)
+	{
+		CONPRINTF(_("Game Speed Increased to %s"), modString);
+	}
+	else
+	{
+		CONPRINTF(_("Game Speed Reduced to %s"), modString);
+	}
+	gameTimeSetMod(newMod);
+}
 void kf_SpeedUp()
 {
 	// get the current modifier
@@ -2384,7 +2379,7 @@ void kf_SpeedUp()
 		return;  // Already at maximum speed.
 	}
 
-	tryChangeSpeed(*newMod, mod);
+	doChangeSpeed(*newMod, mod);
 }
 
 void kf_SlowDown()

@@ -1184,8 +1184,8 @@ static JSValue callFunction(JSContext *ctx, const std::string &function, std::ve
             JS_FreeValue(ctx, stack);
 		}
 		JS_FreeValue(ctx, err);
-		ASSERT(false, "Uncaught exception calling function \"%s\": %s",
-		       function.c_str(), result_str.c_str());
+		/*ASSERT(false, "Uncaught exception calling function \"%s\": %s",
+		       function.c_str(), result_str.c_str());*/
 		return JS_UNDEFINED;
 	}
 	return result;

@@ -29,6 +29,7 @@
 #include "lib/framework/frame.h"
 #include "lib/netplay/netplay.h"
 #include "lib/ivis_opengl/imd.h"
+#include "lib/wzrpc/wzrpc.h"
 #include "objects.h"
 #include "lib/gamelib/gtime.h"
 #include "research.h"
@@ -47,6 +48,7 @@
 #include "qtscript.h"
 #include "stats.h"
 #include "wzapi.h"
+
 
 // The stores for the research stats
 std::vector<RESEARCH> asResearch;
@@ -1027,6 +1029,7 @@ void researchResult(UDWORD researchIndex, UBYTE player, bool bDisplay, STRUCTURE
 	eventResearchedHandleUpgrades(pResearch, psResearchFacility, player);
 
 	triggerEventResearched(pResearch, psResearchFacility, player);
+	wzrpc::notifyResearched(player, pResearch, psResearchFacility);
 }
 
 /*This function is called when the research files are reloaded*/

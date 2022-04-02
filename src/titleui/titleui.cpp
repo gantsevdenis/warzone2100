@@ -48,6 +48,7 @@ void changeTitleUI(std::shared_ptr<WzTitleUI> target)
 	}
 	if (target)
 	{
+		debug(LOG_INFO, "ui? with target?");
 		target->start();
 	}
 }

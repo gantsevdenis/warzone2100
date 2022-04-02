@@ -32,6 +32,7 @@
 #include "lib/framework/strres.h"
 #include "lib/framework/frameresource.h"
 #include "lib/framework/wztime.h"
+#include "lib/wzrpc/wzrpc.h"
 
 #include <wzmaplib/map_terrain_types.h>
 
@@ -94,6 +95,7 @@
 #include "multigifts.h"
 #include "wzscriptdebug.h"
 #include "build_tools/autorevision.h"
+
 
 #if defined(__clang__)
 #pragma clang diagnostic ignored "-Wcast-align"	// TODO: FIXME!
@@ -3296,7 +3298,6 @@ bool loadGame(const char *pGameToLoad, bool keepObjects, bool freeMem, bool User
 	resetMissionWidgets();
 
 	debug(LOG_NEVER, "Done loading");
-
 	return true;
 
 error:

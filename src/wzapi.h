@@ -821,9 +821,10 @@ namespace wzapi
 	{
 	private:
 		using TYPE_POINTER = T*;
-		TYPE_POINTER pt;
+
 
 	public:
+		TYPE_POINTER pt;
 		returned_nullable_ptr(TYPE_POINTER _pt)
 		: pt(_pt)
 		{ }
@@ -980,6 +981,7 @@ namespace wzapi
 	int32_t getMissionType(WZAPI_NO_PARAMS);
 	bool getRevealStatus(WZAPI_NO_PARAMS);
 	bool setRevealStatus(WZAPI_PARAMS(bool status));
+	bool toggleGodMode();
 	bool autoSave(WZAPI_NO_PARAMS);
 
 	// horrible hacks follow -- do not rely on these being present!

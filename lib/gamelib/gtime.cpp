@@ -30,7 +30,7 @@
 #include "gtime.h"
 #include "src/multiplay.h"
 #include "lib/netplay/netplay.h"
-
+#include "lib/wzrpc/wzrpc.h"
 
 #include <time.h>
 
@@ -277,7 +277,10 @@ GameTimeUpdateResult gameTimeUpdate(bool mayUpdate, bool forceTryGameTickUpdate)
 
 	// Pre-calculate fraction used in timeAdjustedIncrement
 	graphicsTimeFraction = (float)deltaGraphicsTime / (float)GAME_TICKS_PER_SEC;
-
+	if (gameTime % 8 == 0)
+	{
+		wzrpc::notifyGameTime(gameTime);
+	}
 	ASSERT(graphicsTime <= gameTime, "Trying to see the future.");
 	return result;
 }

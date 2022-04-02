@@ -1,0 +1,12 @@
+{
+	"AI": {
+		"js": "dumbAi.js",
+		"name": "DumbAi",
+		"tip": "This AI doesn't do anything.",
+		"easy_tip": "It's already as easy as it can get!",
+		"insane_tip": "Still won't do anything.",
+		"wins": 0,
+		"losses": 0,
+		"draws": 0
+	}
+}

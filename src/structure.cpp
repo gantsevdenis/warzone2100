@@ -52,6 +52,7 @@
 // FIXME Direct iVis implementation include!
 #include "lib/ivis_opengl/piematrix.h"
 #include "lib/framework/fixedpoint.h"
+#include "lib/wzrpc/wzrpc.h"
 #include "order.h"
 #include "droid.h"
 #include "action.h"
@@ -77,7 +78,6 @@
 #include "template.h"
 #include "scores.h"
 #include "gateway.h"
-
 #include "random.h"
 #include <functional>
 #include <unordered_map>
@@ -127,6 +127,9 @@ STRUCTURE	*psLastStructHit;
 static		UBYTE	satUplinkExists[MAX_PLAYERS];
 //flag for when the player has one built - either completely or partially
 static		UBYTE	lasSatExists[MAX_PLAYERS];
+
+// prevent structures from firing
+std::unordered_set<uint32_t> bannedFromFiring;
 
 static bool setFunctionality(STRUCTURE *psBuilding, STRUCTURE_TYPE functionType);
 static void setFlagPositionInc(FUNCTIONALITY *pFunctionality, UDWORD player, UBYTE factoryType);
@@ -2680,12 +2683,12 @@ static void aiUpdateStructure(STRUCTURE *psStructure, bool isMission)
 	    && gameTime - psStructure->asWeaps[0].lastFired > weaponFirePause(&asWeaponStats[psStructure->asWeaps[0].nStat], psStructure->player)
 	    && psStructure->asWeaps[0].ammo > 0)
 	{
-		triggerEventStructureReady(psStructure);
+		triggerEventStructureReady(psStructure);  
 		psStructure->asWeaps[0].ammo = 0; // do not fire more than once
 	}
 
 	/* See if there is an enemy to attack */
-	if (psStructure->numWeaps > 0)
+	if (bannedFromFiring.find(psStructure->id) == bannedFromFiring.end() && psStructure->numWeaps > 0)
 	{
 		//structures always update their targets
 		for (UDWORD i = 0; i < psStructure->numWeaps; i++)
@@ -3308,6 +3311,7 @@ static void aiUpdateStructure(STRUCTURE *psStructure, bool isMission)
 					doNextProduction(psStructure, (DROID_TEMPLATE *)pSubject, ModeImmediate);
 
 					cbNewDroid(psStructure, psDroid);
+					wzrpc::notifyDroidBuilt(psStructure, psDroid);
 				}
 			}
 		}

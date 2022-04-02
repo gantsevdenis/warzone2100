@@ -27,7 +27,7 @@
 #include "lib/framework/frame.h"
 #include "lib/framework/fixedpoint.h"
 #include "lib/netplay/netplay.h"
-
+#include "lib/wzrpc/wzrpc.h"
 #include "action.h"
 #include "combat.h"
 #include "difficulty.h"
@@ -466,6 +466,7 @@ int32_t objDamage(BASE_OBJECT *psObj, unsigned damage, unsigned originalhp, WEAP
 	}
 
 	objTrace(psObj->id, "objDamage: Penetrated %d", actualDamage);
+	wzrpc::notifyDamaged(psObj->id, actualDamage, isDamagePerSecond, weaponClass, weaponSubClass, gameTime);
 	syncDebug("damage%u dam%u,o%u,wc%d.%d,ar%d,lev%d,aDam%d,isDps%d", psObj->id, damage, originalhp, weaponClass, weaponSubClass, armour, level, actualDamage, isDamagePerSecond);
 
 	// for some odd reason, we have 0 hitpoints.

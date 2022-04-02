@@ -39,7 +39,7 @@
 #include "lib/sound/cdaudio.h"
 #include "lib/sound/mixer.h"
 #include "lib/netplay/netplay.h"
-
+#include "lib/wzrpc/wzrpc.h"
 #include "loop.h"
 #include "objects.h"
 #include "display.h"
@@ -106,7 +106,7 @@ size_t loopPolyCount;
 static bool paused = false;
 static bool video = false;
 static unsigned short int skipCounter = 0;
-
+static uint8_t frameCount = 0;
 //holds which pause is valid at any one time
 struct PAUSE_STATE
 {
@@ -704,7 +704,12 @@ GAMECODE gameLoop()
 		// Output occasional stats to stdout
 		stdOutGameSummary();
 	}
-
+	// LOTS of info
+	frameCount++;
+	if ((frameCount % 4) == 0)
+	{
+		wzrpc::notifyGameTime(gameTime);
+	}
 	return renderReturn;
 }
 
@@ -799,6 +804,7 @@ bool gamePaused()
 void setGamePauseStatus(bool val)
 {
 	paused = val;
+	wzrpc::notifyGamePauseStatus(val);
 }
 
 bool gameUpdatePaused()

@@ -48,6 +48,7 @@
 #include "lib/framework/file.h"
 #include "lib/gamelib/gtime.h"
 #include "lib/netplay/netplay.h"
+#include "lib/wzrpc/wzrpc.h"
 #include "multiplay.h"
 #include "levels.h"
 #include "map.h"

@@ -34,6 +34,7 @@
 #include "lib/sound/audio.h"
 #include "lib/sound/audio_id.h"
 #include "lib/netplay/netplay.h"
+#include "lib/wzrpc/wzrpc.h"
 
 #include "objects.h"
 #include "loop.h"
@@ -71,6 +72,7 @@
 #include "combat.h"
 #include "template.h"
 #include "qtscript.h"
+
 
 #define DEFAULT_RECOIL_TIME	(GAME_TICKS_PER_SEC/4)
 #define	DROID_DAMAGE_SPREAD	(16 - rand()%32)
@@ -573,6 +575,7 @@ bool destroyDroid(DROID *psDel, unsigned impactTime)
 	removeDroidFX(psDel, impactTime);
 	removeDroidBase(psDel);
 	psDel->died = impactTime;
+	wzrpc::notifyDroidDestroyed(psDel, gameTime);
 	return true;
 }
 

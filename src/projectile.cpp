@@ -35,7 +35,7 @@
 #include "lib/ivis_opengl/ivisdef.h"
 #include "lib/ivis_opengl/piestate.h"
 #include "lib/ivis_opengl/piematrix.h"
-
+#include "lib/wzrpc/wzrpc.h"
 #include "objects.h"
 #include "move.h"
 #include "action.h"
@@ -488,6 +488,11 @@ bool proj_SendProjectileAngled(WEAPON *psWeap, SIMPLE_OBJECT *psAttacker, int pl
 		psProj->time = psProj->prevSpacetime.time;
 
 		setProjectileSource(psProj, psAttacker);
+		if (psAttacker->type == OBJ_DROID)
+		{
+			wzrpc::notifyDroidShotFired(psProj);
+		}
+		
 	}
 
 	if (psTarget)

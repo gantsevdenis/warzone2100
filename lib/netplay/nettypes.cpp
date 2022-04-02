@@ -603,7 +603,7 @@ bool NETend()
 
 		return ret;
 	}
-
+	// still happens on debug mode, fast game speed!
 	assert(false && false && false);
 	return false;
 }

@@ -73,7 +73,7 @@
 #include "lib/netplay/netreplay.h"
 #include "lib/sound/audio.h"
 #include "lib/sound/cdaudio.h"
-
+#include "lib/wzrpc/wzrpc.h"
 #include "clparse.h"
 #include "challenge.h"
 #include "configuration.h"
@@ -107,6 +107,7 @@
 #include "updatemanager.h"
 #include "activity.h"
 #include "stdinreader.h"
+#include "lib/wzrpc/wzrpc.h"
 #if defined(ENABLE_DISCORD)
 #include "integrations/wzdiscordrpc.h"
 #endif
@@ -1153,6 +1154,8 @@ static void runGameLoop()
 		debug(LOG_MAIN, "GAMECODE_LOADGAME");
 		stopGameLoop();
 		initSaveGameLoad(); // Restart and load a savegame
+		//wzrpc::start();
+		wzrpc::notifyStartLevel(gameTime);
 		break;
 	case GAMECODE_NEWLEVEL:
 		debug(LOG_MAIN, "GAMECODE_NEWLEVEL");
@@ -1198,6 +1201,8 @@ static void runTitleLoop()
 				changeTitleMode(TITLE);
 			}
 			closeLoadingScreen();
+			wzrpc::start();
+			wzrpc::notifyGameLoaded(gameTime);
 			break;
 		}
 	case TITLECODE_STARTGAME:
@@ -1206,7 +1211,8 @@ static void runTitleLoop()
 		stopTitleLoop();
 		startGameLoop(); // Restart into gameloop
 		closeLoadingScreen();
-		break;
+		debug(LOG_INFO, "TITLECODE_STARTGAME")
+;		break;
 	case TITLECODE_SHOWINTRO:
 		debug(LOG_MAIN, "TITLECODE_SHOWINTRO");
 		seq_ClearSeqList();
@@ -1259,6 +1265,7 @@ void mainLoop()
 
 	wzApplyCursor();
 	runNotifications();
+	
 #if defined(ENABLE_DISCORD)
 	discordRPCPerFrame();
 #endif
@@ -1633,7 +1640,8 @@ int realmain(int argc, char *argv[])
 	char **utfargv = (char **)argv;
 
 	osSpecificFirstChanceProcessSetup();
-
+	debug(LOG_INFO, "starting server");
+	//wzrpc::start();
 	debug_init();
 	debug_register_callback(debug_callback_stderr, nullptr, nullptr, nullptr);
 #if defined(WZ_OS_WIN) && defined(DEBUG_INSANE)
@@ -2003,7 +2011,6 @@ int realmain(int argc, char *argv[])
 #endif
 
 	osSpecificPostInit();
-
 	wzMainEventLoop();
 	ActivityManager::instance().preSystemShutdown();
 
