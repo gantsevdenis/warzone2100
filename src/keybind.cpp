@@ -1281,8 +1281,6 @@ void enableGodMode()
 
 void	kf_ToggleGodMode()
 {
-	static bool pastReveal = true;
-
 	/* not supported if a spectator - since they automatically get full vis */
 	SPECTATOR_NO_OP();
 

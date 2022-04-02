@@ -3094,7 +3094,7 @@ int wzapi::countStruct(WZAPI_PARAMS(std::string structureName, optional<int> _pl
 		    || (playerFilter == ALLIES && aiCheckAlliances(i, me))
 		    || (playerFilter == ENEMIES && !aiCheckAlliances(i, me)))
 		{
-			quantity += asStructureStats[structureIndex].curCount[i];
+			quantity += asStructureStats[index].curCount[i];
 		}
 	}
 	return quantity;
