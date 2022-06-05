@@ -50,3 +50,5 @@ if(MSVC)
 	# C4267: 'conversion': conversion from 'type1' to 'type2', possible loss of data // FIXME!!
 	target_compile_options(netplay PRIVATE "/wd4267")
 endif()
+add_definitions(-DSTEAMNETWORKINGSOCKETS_LOCK_DEBUG_LEVEL=0)
+add_subdirectory(3rdparty/GameNetworkingSockets)
