@@ -1364,8 +1364,10 @@ static unsigned calcUpgradeSum(const uint8_t (&asParts)[DROID_MAXCOMP], int numW
 		func(asSensorStats   [asParts[COMP_SENSOR]].upgrade[player]) +
 		func(asECMStats      [asParts[COMP_ECM]].upgrade[player]) +
 		func(asRepairStats   [asParts[COMP_REPAIRUNIT]].upgrade[player]) +
-		func(asConstructStats[asParts[COMP_CONSTRUCT]].upgrade[player]) +
-		propulsionFunc(asBodyStats[asParts[COMP_BODY]].upgrade[player], asPropulsionStats[asParts[COMP_PROPULSION]].upgrade[player]);
+		func(asConstructStats[asParts[COMP_CONSTRUCT]].upgrade[player]) \
+
+		+ propulsionFunc(asBodyStats[asParts[COMP_BODY]].upgrade[player], 
+									   asPropulsionStats[asParts[COMP_PROPULSION]].upgrade[player]);
 	for (int i = 0; i < numWeaps; ++i)
 	{
 		// asWeaps[i] > 0 check only needed for droids, not templates.
@@ -1436,8 +1438,9 @@ static uint32_t calcBody(T *obj, int player)
 {
 	int hitpoints = calcUpgradeSum(obj, player, [](COMPONENT_STATS::UPGRADE const &upgrade) {
 		return upgrade.hitpoints;
-	}, [](BODY_STATS::UPGRADE const &bodyUpgrade, PROPULSION_STATS::UPGRADE const &propUpgrade) {
+	}, [obj](BODY_STATS::UPGRADE const &bodyUpgrade, PROPULSION_STATS::UPGRADE const &propUpgrade) {
 		// propulsion hitpoints can be a percentage of the body's hitpoints
+		// debug(LOG_INFO, "calcBody %u;%u;%u", bodyUpgrade.hitpoints, propUpgrade.hitpointPctOfBody, propUpgrade.hitpoints);
 		return bodyUpgrade.hitpoints * (100 + propUpgrade.hitpointPctOfBody) / 100 + propUpgrade.hitpoints;
 	});
 

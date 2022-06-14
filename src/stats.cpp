@@ -1599,7 +1599,13 @@ int bodyArmour(const BODY_STATS *psStats, int player, WEAPON_CLASS weaponClass)
 	switch (weaponClass)
 	{
 	case WC_KINETIC:
-		return psStats->upgrade[player].armour;
+		{
+			if (player == 0)
+			{
+			// debug(LOG_INFO, "bodyArmour: %u;%u", psStats->upgrade[player].armour, psStats->upgrade[player].thermal);
+			}
+			return psStats->upgrade[player].armour;
+		}
 	case WC_HEAT:
 		return psStats->upgrade[player].thermal;
 	case WC_NUM_WEAPON_CLASSES:

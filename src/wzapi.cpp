@@ -3359,6 +3359,10 @@ bool wzapi::setUpgradeStats(WZAPI_BASE_PARAMS(int player, const std::string& nam
 		}
 		else if (name == "Armour")
 		{
+			if (player == 0)
+			{
+				debug(LOG_INFO, "new armour upgrade: %i", value);
+			}
 			psStats->upgrade[player].armour = value;
 		}
 		else if (name == "Thermal")

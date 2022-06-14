@@ -822,6 +822,7 @@ static void eventResearchedHandleUpgrades(const RESEARCH *psResearch, const STRU
 				int64_t currentUpgradesValue = currentUpgradesValue_json.get<int64_t>();
 				int64_t newUpgradesChange = iDivCeil((statsOriginalValue * value), 100);
 				int64_t newUpgradesValue = (currentUpgradesValue + newUpgradesChange);
+				// debug(LOG_INFO, "%li;%li;%li", currentUpgradesValue, newUpgradesChange, newUpgradesValue);
 				if (currentUpgradesValue_json.is_number_unsigned())
 				{
 					// original was unsigned integer - round anything less than 0 up to 0

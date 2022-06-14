@@ -1545,12 +1545,19 @@ UDWORD	calcDamage(UDWORD baseDamage, WEAPON_EFFECT weaponEffect, BASE_OBJECT *ps
 	{
 		const int propulsion = (asPropulsionStats + ((DROID *)psTarget)->asBits[COMP_PROPULSION])->propulsionType;
 		const int body = (asBodyStats + ((DROID *)psTarget)->asBits[COMP_BODY])->size;
-		damage += baseDamage * (asWeaponModifier[weaponEffect][propulsion] - 100);
-		damage += baseDamage * (asWeaponModifierBody[weaponEffect][body] - 100);
+		const auto k = (asWeaponModifier[weaponEffect][propulsion] - 100);
+		const auto k2 = (asWeaponModifierBody[weaponEffect][body] - 100);
+		damage += baseDamage * k;
+		damage += baseDamage * k2;
+		if (psTarget->player == 0)
+		{
+			debug(LOG_INFO, "calcDamage: %u;%u;%i;%i", baseDamage, damage, k, k2);
+		}
 	}
-
 	//Always do at least one damage.
-	return MAX(damage / 100, 1);
+	const auto out = MAX(damage / 100, 1);
+
+	return out;
 }
 
 /*

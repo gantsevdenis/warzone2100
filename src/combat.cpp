@@ -445,10 +445,16 @@ int32_t objDamage(BASE_OBJECT *psObj, unsigned damage, unsigned originalhp, WEAP
 
 	// Reduce damage taken by EXP_REDUCE_DAMAGE % for each experience level
 	int actualDamage = (damage * (100 - EXP_REDUCE_DAMAGE * level)) / 100;
-
+	if (psObj->player == 0)
+	{
+		debug(LOG_INFO, "apply experience: damage;actualDamage;level %u;%u;%u", damage, actualDamage, level);
+	}
 	// Apply at least the minimum damage amount
 	actualDamage = MAX(actualDamage - armour, actualDamage * minDamage / 100);
-
+	if (psObj->player == 0)
+	{
+		debug(LOG_INFO, "apply weapon minimum: actualDamage;armour;minDamage %u;%u;%u", actualDamage, armour, minDamage);
+	}
 	// And at least MIN_WEAPON_DAMAGE points
 	actualDamage = MAX(actualDamage, MIN_WEAPON_DAMAGE);
 
@@ -485,7 +491,10 @@ int32_t objDamage(BASE_OBJECT *psObj, unsigned damage, unsigned originalhp, WEAP
 	psObj->body -= actualDamage;
 
 	syncDebugObject(psObj, 'D');
-
+	if (psObj->player == 0)
+	{
+		debug(LOG_INFO, "actual;armour %u;%u", actualDamage, armour);
+	}
 	return (int64_t)65536 * actualDamage / originalhp;
 }
 
