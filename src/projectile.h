@@ -81,7 +81,7 @@ int proj_GetMinRange(const WEAPON_STATS *psStats, int player);
 /** Return the short range for a weapon. */
 int proj_GetShortRange(const WEAPON_STATS *psStats, int player);
 
-UDWORD calcDamage(UDWORD baseDamage, WEAPON_EFFECT weaponEffect, BASE_OBJECT *psTarget);
+UDWORD calcDamage(UDWORD baseDamage, WEAPON_EFFECT weaponEffect, const BASE_OBJECT *psTarget);
 bool gfxVisible(PROJECTILE *psObj);
 
 /***************************************************************************/

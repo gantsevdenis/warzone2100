@@ -364,6 +364,12 @@ private:
 			// Started production. Set the colour of the bar to yellow.
 			int buildPointsTotal = calcTemplateBuild(FactoryGetTemplate(manufacture));
 			int buildRate = manufacture->timeStartHold == 0 ? getBuildingProductionPoints(factory) : 0;
+			if (factory->player == 0)
+			{
+				auto &upgrade = factory->pStructureType->upgrade[factory->player];
+				debug(LOG_INFO, "production points: %i;%i;%i %i;%i", upgrade.production, factory->capacity, upgrade.moduleProduction,
+																														 buildRate, buildPointsTotal);
+			}
 			formatTime(progressBar.get(), buildPointsTotal - manufacture->buildPointsRemaining, buildPointsTotal, buildRate, _("Construction Progress"));
 		}
 		else

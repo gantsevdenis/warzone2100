@@ -198,6 +198,7 @@ int droidReloadBar(const BASE_OBJECT *psObj, const WEAPON *psWeap, int weapon_sl
 }
 
 #define UNIT_LOST_DELAY	(5*GAME_TICKS_PER_SEC)
+
 /* Deals damage to a droid
  * \param psDroid droid to deal damage to
  * \param damage amount of damage to deal
@@ -218,11 +219,15 @@ int32_t droidDamage(DROID *psDroid, unsigned damage, WEAPON_CLASS weaponClass, W
 	{
 		damage *= 3;
 	}
-
+	if (psDroid->player == 0 && psDroid->body == 205)
+	{
+		debug(LOG_INFO, "attacking %i", gameTime);
+	}
 	relativeDamage = objDamage(psDroid, damage, psDroid->originalBody, weaponClass, weaponSubClass, isDamagePerSecond, minDamage);
 
 	if (relativeDamage > 0)
 	{
+
 		// reset the attack level
 		if (secondaryGetState(psDroid, DSO_ATTACK_LEVEL) == DSS_ALEV_ATTACKED)
 		{
@@ -236,6 +241,7 @@ int32_t droidDamage(DROID *psDroid, unsigned damage, WEAPON_CLASS weaponClass, W
 	else if (relativeDamage < 0)
 	{
 		// Droid destroyed
+		debug(LOG_INFO, "destroyed %i", gameTime);
 		debug(LOG_ATTACK, "droid (%d): DESTROYED", psDroid->id);
 
 		// Deal with score increase/decrease and messages to the player
@@ -397,7 +403,7 @@ void recycleDroid(DROID *psDroid)
 	{
 		recycled_experience[psDroid->player].push(psDroid->experience);
 	}
-
+	
 	// return part of the cost of the droid
 	int cost = calcDroidPower(psDroid);
 	cost = (cost / 2) * psDroid->body / psDroid->originalBody;

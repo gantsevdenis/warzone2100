@@ -510,7 +510,7 @@ static void gameStateUpdate()
 	{
 		syncDebug("Player %d = \"%s\"", n, NetPlay.players[n].name);
 	}
-
+	// debug(LOG_INFO, "update game state %i", gameTime);
 	// Add version string to desynch logs. Different version strings will not trigger a desynch dump per se, due to the syncDebug{Get, Set}Crc guard.
 	auto crc = syncDebugGetCrc();
 	syncDebug("My client version = %s", version_getVersionString());

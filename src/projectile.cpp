@@ -1291,6 +1291,7 @@ static void proj_PostImpactFunc(PROJECTILE *psObj)
 	/* Periodical damage effect */
 	if (psStats->upgrade[psObj->player].periodicalDamageTime > 0)
 	{
+		debug(LOG_INFO, "checking periodic damage...");
 		/* See if anything is in the fire and damage it periodically */
 		proj_checkPeriodicalDamage(psObj);
 	}
@@ -1394,11 +1395,11 @@ static void proj_checkPeriodicalDamage(PROJECTILE *psProj)
 			syncDebugObject(psCurr, '-');
 			continue;  // Do not damage dead objects further.
 		}
-
-		if (aiCheckAlliances(psProj->player, psCurr->player))
+		debug(LOG_INFO, "considering object %i", psCurr->id);
+		/*if (aiCheckAlliances(psProj->player, psCurr->player))
 		{
 			continue;  // Don't damage your own droids, nor ally droids - unrealistic, but better.
-		}
+		}*/
 
 		if (psCurr->type == OBJ_DROID &&
 		    isVtolDroid((DROID *)psCurr) &&
@@ -1417,7 +1418,9 @@ static void proj_checkPeriodicalDamage(PROJECTILE *psProj)
 			psCurr->periodicalDamageStart = gameTime;
 			psCurr->periodicalDamage = 0;  // Reset periodical damage done this tick.
 		}
-		unsigned damageRate = calcDamage(weaponPeriodicalDamage(psStats, psProj->player), psStats->periodicalDamageWeaponEffect, psCurr);
+		const auto p_dmg = weaponPeriodicalDamage(psStats, psProj->player);
+		unsigned damageRate = calcDamage(p_dmg, psStats->periodicalDamageWeaponEffect, psCurr);
+		debug(LOG_INFO, "periodical damage %i;%i;%d;%p", p_dmg, gameTime, damageRate, (void*) psStats);
 		debug(LOG_NEVER, "Periodical damage of %d per second to object %d, player %d\n", damageRate, psCurr->id, psCurr->player);
 
 		struct DAMAGE sDamage = {
@@ -1528,7 +1531,7 @@ ObjectShape establishTargetShape(BASE_OBJECT *psTarget)
 
 /*the damage depends on the weapon effect and the target propulsion type or
 structure strength*/
-UDWORD	calcDamage(UDWORD baseDamage, WEAPON_EFFECT weaponEffect, BASE_OBJECT *psTarget)
+UDWORD	calcDamage(UDWORD baseDamage, WEAPON_EFFECT weaponEffect, const BASE_OBJECT *psTarget)
 {
 	if (baseDamage == 0)
 	{
@@ -1539,19 +1542,19 @@ UDWORD	calcDamage(UDWORD baseDamage, WEAPON_EFFECT weaponEffect, BASE_OBJECT *ps
 
 	if (psTarget->type == OBJ_STRUCTURE)
 	{
-		damage += baseDamage * (asStructStrengthModifier[weaponEffect][((STRUCTURE *)psTarget)->pStructureType->strength] - 100);
+		damage += baseDamage * (asStructStrengthModifier[weaponEffect][((const STRUCTURE *)psTarget)->pStructureType->strength] - 100);
 	}
 	else if (psTarget->type == OBJ_DROID)
 	{
-		const int propulsion = (asPropulsionStats + ((DROID *)psTarget)->asBits[COMP_PROPULSION])->propulsionType;
-		const int body = (asBodyStats + ((DROID *)psTarget)->asBits[COMP_BODY])->size;
+		const int propulsion = (asPropulsionStats + ((const DROID *)psTarget)->asBits[COMP_PROPULSION])->propulsionType;
+		const int body = (asBodyStats + ((const DROID *)psTarget)->asBits[COMP_BODY])->size;
 		const auto k = (asWeaponModifier[weaponEffect][propulsion] - 100);
 		const auto k2 = (asWeaponModifierBody[weaponEffect][body] - 100);
 		damage += baseDamage * k;
 		damage += baseDamage * k2;
 		if (psTarget->player == 0)
 		{
-			debug(LOG_INFO, "calcDamage: %u;%u;%i;%i", baseDamage, damage, k, k2);
+			// debug(LOG_INFO, "calcDamage: %u;%u;%i;%i;%i", baseDamage, damage, k, k2, gameTime);
 		}
 	}
 	//Always do at least one damage.

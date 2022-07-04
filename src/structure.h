@@ -472,7 +472,8 @@ static inline int getBuildingResearchPoints(STRUCTURE *psStruct)
 static inline int getBuildingProductionPoints(STRUCTURE *psStruct)
 {
 	auto &upgrade = psStruct->pStructureType->upgrade[psStruct->player];
-	return upgrade.production + upgrade.moduleProduction * psStruct->capacity;
+	auto p1 = upgrade.moduleProduction * psStruct->capacity;
+	return upgrade.production + p1;
 }
 
 static inline int getBuildingPowerPoints(STRUCTURE *psStruct)
