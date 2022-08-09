@@ -2089,7 +2089,12 @@ bool orderStateStatsLoc(DROID *psDroid, DROID_ORDER order, STRUCTURE_STATS **pps
 void orderDroidAddPending(DROID *psDroid, DROID_ORDER_DATA *psOrder)
 {
 	ASSERT_OR_RETURN(, psDroid != nullptr, "Invalid unit pointer");
-
+	if (psDroid->player == 0)
+	{
+		 debug(LOG_INFO, "adding pending order to %i;%i", psDroid->id, psOrder->type);
+		 _debugBacktrace(LOG_ALL);
+	}
+	
 	psDroid->asOrderList.push_back(*psOrder);
 
 	// Only display one arrow, bOrderEffectDisplayed must be set to false once per arrow.
@@ -2184,13 +2189,16 @@ bool orderDroidList(DROID *psDroid)
 			ASSERT(false, "orderDroidList: Invalid order");
 			return false;
 		}
-
+    if (psDroid->player == 0)
+		{
+			debug(LOG_INFO, "next order in the list: %i", sOrder.type);
+		}
 		orderDroidBase(psDroid, &sOrder);
 		syncDebugDroid(psDroid, 'o');
 
 		return true;
 	}
-
+  // TODO: Add check for VTOL to revert our steps
 	return false;
 }
 
@@ -2263,8 +2271,7 @@ static bool orderDroidLocAdd(DROID *psDroid, DROID_ORDER order, UDWORD x, UDWORD
 	if (order != DORDER_MOVE && order != DORDER_SCOUT && order != DORDER_DISEMBARK)
 	{
 		return false;
-	}
-
+	}	
 	sendDroidInfo(psDroid, DroidOrder(order, Vector2i(x, y)), add);
 
 	return true;
@@ -2373,7 +2380,10 @@ void orderSelectedLoc(uint32_t player, uint32_t x, uint32_t y, bool add)
 	{
 		return;
 	}
-
+	if (player == 0)
+	{
+		debug(LOG_INFO, "orderSelectedLoc %i", add);
+	}
 	ASSERT_PLAYER_OR_RETURN(, player);
 
 	// note that an order list graphic needs to be displayed
@@ -2396,6 +2406,7 @@ void orderSelectedLoc(uint32_t player, uint32_t x, uint32_t y, bool add)
 			if (order != DORDER_NONE && !(add && orderDroidLocAdd(psCurr, order, x, y)))
 			{
 				// if not just do it straight off
+				debug(LOG_INFO, "doing it %i straight off", order);
 				orderDroidLoc(psCurr, order, x, y, ModeQueue);
 			}
 		}
