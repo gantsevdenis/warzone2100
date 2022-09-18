@@ -989,7 +989,7 @@ void actionUpdateDroid(DROID *psDroid)
 			break;
 		}
 		ASSERT_OR_RETURN(, psDroid->psActionTarget[0] != nullptr, "target is NULL while attacking");
-
+		
 		if (psDroid->action == DACTION_ROTATETOATTACK)
 		{
 			if (psDroid->sMove.Status == MOVETURNTOTARGET)
@@ -1025,11 +1025,14 @@ void actionUpdateDroid(DROID *psDroid)
 				    validTarget(psDroid, psDroid->psActionTarget[0], i) &&
 				    actionInRange(psDroid, psDroid->psActionTarget[0], i))
 				{
+					debug(LOG_INFO, "all good, setting target");
 					setDroidActionTarget(psDroid, psDroid->psActionTarget[0], i);
 				}
+				
 				// If we still don't have a target, try to find one
 				else
 				{
+					debug(LOG_INFO, "apparently cannot shoot it");
 					if (psDroid->psActionTarget[i] == nullptr &&
 					    aiChooseTarget(psDroid, &psTargets[i], i, false, nullptr))  // Can probably just use psTarget instead of psTargets[i], and delete the psTargets variable.
 					{
@@ -1046,7 +1049,7 @@ void actionUpdateDroid(DROID *psDroid)
 			{
 				psActionTarget = psDroid->psActionTarget[0];
 			}
-
+			// if (psDroid->player == 0) debug(LOG_INFO, "action target is %i", psActionTarget->id);
 			if (nonNullWeapon[i]
 			    && actionVisibleTarget(psDroid, psActionTarget, i)
 			    && actionInRange(psDroid, psActionTarget, i))

@@ -682,7 +682,7 @@ bool initTerrain()
 	xSectors = (mapWidth + sectorSize - 1) / sectorSize;
 	ySectors = (mapHeight + sectorSize - 1) / sectorSize;
 	sectors = std::unique_ptr<Sector[]> (new Sector[xSectors * ySectors]());
-
+	debug(LOG_TERRAIN, "this map has %i %i sectors", xSectors, ySectors);
 	////////////////////
 	// fill the geometry part of the sectors
 	geometry = (RenderVertex *)malloc(sizeof(RenderVertex) * xSectors * ySectors * (sectorSize + 1) * (sectorSize + 1) * 2);

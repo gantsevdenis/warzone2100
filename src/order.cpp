@@ -726,6 +726,7 @@ void orderUpdateDroid(DROID *psDroid)
 		         actionVisibleTarget(psDroid, psDroid->order.psObj, 0) && !isVtolDroid(psDroid))
 		{
 			// moved near enough to attack change to attack action
+			debug(LOG_INFO, "attacking!!!");
 			actionDroid(psDroid, DACTION_ATTACK, psDroid->order.psObj);
 		}
 		else if ((psDroid->action == DACTION_MOVETOATTACK) &&
@@ -744,6 +745,9 @@ void orderUpdateDroid(DROID *psDroid)
 		         && !aiCheckAlliances(psWall->player, psDroid->player))
 		{
 			// there is a wall in the way - attack that
+			// this is wrong. Attack decision cannot be taken here, because
+			// we may have many weapons, of different types (direct VS indirect)
+			if (psDroid->player == 0) debug(LOG_INFO, "attacking wall!!");
 			actionDroid(psDroid, DACTION_ATTACK, psWall);
 		}
 		else if ((psDroid->action == DACTION_NONE) ||

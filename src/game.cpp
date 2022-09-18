@@ -6977,7 +6977,9 @@ bool loadTerrainTypeMap(const char *pFilePath)
 		// Failed to load terrain type map data
 		return false;
 	}
-
+	debug(LOG_INFO, "==========");
+	_debugBacktrace(LOG_TERRAIN);
+	debug(LOG_INFO, "==========");
 	// reset the terrain table
 	memset(terrainTypes, 0, sizeof(terrainTypes));
 

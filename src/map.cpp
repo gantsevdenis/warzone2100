@@ -386,6 +386,7 @@ fallback:
 }
 
 // Parse the file to set up the ground type
+// SetGroundForTile("tileset/arizonaground.txt", "arizona_ground");
 static void SetGroundForTile(const char *filename, const char *nametype)
 {
 	char	*pFileData = nullptr;
@@ -416,7 +417,7 @@ static void SetGroundForTile(const char *filename, const char *nametype)
 	pFileData = strchr(pFileData, '\n') + 1;
 
 	map = std::unique_ptr<int[]> (new int[numlines * 2 * 2]());
-
+	debug(LOG_TERRAIN, "init map: numlines %i", numlines*4);
 	for (i = 0; i < numlines; i++)
 	{
 		sscanf(pFileData, "%255[^,'\r\n],%255[^,'\r\n],%255[^,'\r\n],%255[^,'\r\n]%n", val1, val2, val3, val4, &cnt);
@@ -428,10 +429,19 @@ static void SetGroundForTile(const char *filename, const char *nametype)
 		// in case it isn't obvious, this is a 3D array, and using pointer math to access each element.
 		// so map[10][0][1] would be map[10*2*2 + 0 + 1] == map[41]
 		// map[10][1][0] == map[10*2*2 + 2 + 0] == map[42]
-		map[i * 2 * 2 + 0 * 2 + 0] = getTextureType(val1);
-		map[i * 2 * 2 + 0 * 2 + 1] = getTextureType(val2);
-		map[i * 2 * 2 + 1 * 2 + 0] = getTextureType(val3);
-		map[i * 2 * 2 + 1 * 2 + 1] = getTextureType(val4);
+		int a = i * 2 * 2 + 0 * 2 + 0;
+		int b = i * 2 * 2 + 0 * 2 + 1;
+		int c = i * 2 * 2 + 1 * 2 + 0;
+		int d = i * 2 * 2 + 1 * 2 + 1;
+		map[a] = getTextureType(val1);
+		map[b] = getTextureType(val2);
+		map[c] = getTextureType(val3);
+		map[d] = getTextureType(val4);
+		debug(LOG_TERRAIN, "map %i %i %i %i -> %s(%i) %s(%i) %s(%i) %s(%i)", a, b, c, d, 
+			val1, getTextureType(val1),
+			val2, getTextureType(val2), 
+			val3, getTextureType(val3),
+			val4, getTextureType(val4));
 	}
 }
 
@@ -487,100 +497,200 @@ static void rotFlip(int tile, int *i, int *j)
 	*j = invmap[rot][1];
 }
 
-/// Tries to figure out what ground type a grid point is from the surrounding tiles
 static int determineGroundType(int x, int y, const char *tileset)
 {
-	int ground[2][2];
-	int votes[2][2];
-	int weight[2][2];
-	int i, j, tile;
-	int a, b, best;
-	MAPTILE *psTile;
+	int ground[4] = {0};
+	int votes[4]  = {0};
+	int weight[4] = {10};
+	// 4 neighbour's texture compound data
+	int tile[4], a[4], b[4];
+	int best;
+	// 4 neighbours
+	MAPTILE *psTile[4];
+  int neighb_x[4], neighb_y[4];
+	neighb_y[0] = y - 1;   neighb_x[0] = x - 1;
+	neighb_y[1] = y - 1;   neighb_x[1] = x;
+	neighb_y[2] = y;       neighb_x[2] = x - 1;
+	neighb_y[3] = y;       neighb_x[3] = x;
 
 	if (x < 0 || y < 0 || x >= mapWidth || y >= mapHeight)
 	{
 		return 0; // just return the first ground type
 	}
 
-	// check what tiles surround this grid point
-	for (i = 0; i < 2; i++)
+	for (int i = 0; i < 4; i++)
 	{
-		for (j = 0; j < 2; j++)
+		if (neighb_x[i] < 0 || neighb_y[i] < 0)
 		{
-			if (x + i - 1 < 0 || y + j - 1 < 0 || x + i - 1 >= mapWidth || y + j - 1 >= mapHeight)
+			psTile[i] = nullptr;
+			tile[i] = 0;
+		} else 
+		{
+			psTile[i] = mapTile(neighb_x[i], neighb_y[i]);
+			tile[i] = psTile[i]->texture;
+		}
+	}
+	a[0] = 1; b[0] = 1;
+	a[1] = 1; b[1] = 1;
+	a[2] = 1; b[2] = 1;
+	a[3] = 1; b[3] = 1;
+	int tilenum[4];
+	for (int i = 0; i < 4; i++)
+	{
+		rotFlip(tile[i], &a[i], &b[i]);
+		tilenum[i] = TileNumber_tile(tile[i]);
+		
+	}
+	for (int i = 0; i < 4; i++)
+	{
+	  // a_grass, u_water ...
+		ground[i]  = map[tilenum[i] * 4 + a[i] * 2 + b[i]];
+	}
+	// ground[4] now contains all *assumed* grounds from adjacent tile corners
+	// not 16, but only 1 corner per adjacent tile
+	if (x <= 7 && y <= 12 && x > 6 && y > 11) 
+	{
+		debug(LOG_TERRAIN, "init: %i-%i (tiles %i %i %i %i .png): %i %i %i %i", x, y, 
+			TileNumber_tile(tile[0]), TileNumber_tile(tile[1]),
+			TileNumber_tile(tile[2]), TileNumber_tile(tile[3]),
+			ground[0], ground[1], ground[2], ground[3]);
+	}
+  for (int i = 0; i < 4; i++)
+	{
+		// cliff tiles have higher priority, to be clearly visible
+		if (psTile[i] && terrainType(psTile[i]) == TER_CLIFFFACE)
+		{
+			weight[i] = 100;
+		}
+		// water bottom has lower priority, to stay inside water
+		else if (psTile[i] && terrainType(psTile[i]) == TER_WATER)
+		{
+			weight[i] = 1;
+		}
+	}
+	
+	for (int i = 0; i < 4; i++)
+	{
+		for (int j = 0; j < 4; j++)
+		{
+			if (ground[i] == ground[j])
 			{
-				psTile = nullptr;
-				tile = 0;
-			}
-			else
-			{
-				psTile = mapTile(x + i - 1, y + j - 1);
-				tile = psTile->texture;
-			}
-			a = i;
-			b = j;
-			rotFlip(tile, &a, &b);
-			ground[i][j] = groundFromMapTile(tile, a, b);
-
-			votes[i][j] = 0;
-			// votes are weighted, some tiles have more weight than others
-			weight[i][j] = 10;
-
-			if (psTile)
-			{
-				// cliff tiles have higher priority, to be clearly visible
-				if (terrainType(psTile) == TER_CLIFFFACE)
-				{
-					weight[i][j] = 100;
-				}
-				// water bottom has lower priority, to stay inside water
-				if (terrainType(psTile) == TER_WATER)
-				{
-					weight[i][j] = 1;
-				}
+				votes[i] += weight[j];
 			}
 		}
 	}
 
-	// now vote, because some maps have seams
-	for (i = 0; i < 2; i++)
-	{
-		for (j = 0; j < 2; j++)
-		{
-			for (a = 0; a < 2; a++)
-			{
-				for (b = 0; b < 2; b++)
-				{
-					if (ground[i][j] == ground[a][b])
-					{
-						votes[i][j] += weight[a][b];
-					}
-				}
-			}
-		}
-	}
 	// and determine the winner
 	best = -1;
-	a = 0;
-	b = 0;
-	for (i = 0; i < 2; i++)
+	int sofar = 0;
+	for (int i = 0; i < 4; i++)
 	{
-		for (j = 0; j < 2; j++)
+		if (votes[i] > best || (votes[i] == best && ground[i] < ground[sofar]))
 		{
-			if (votes[i][j] > best || (votes[i][j] == best && ground[i][j] < ground[a][b]))
-			{
-				best = votes[i][j];
-				a = i;
-				b = j;
-			}
+			best = votes[i];
+			sofar = i;
 		}
 	}
-	return ground[a][b];
+	//debug(LOG_TERRAIN, "tile (%ix%i) determined ground %i, tex=%s",x, y, ground[sofar], psGroundTypes[ground[sofar]].textureName);
+	return ground[sofar];
 }
+
+/// Tries to figure out what ground type a grid point is from the surrounding tiles
+// static int determineGroundType(int x, int y, const char *tileset)
+// {
+// 	int ground[2][2];
+// 	int votes[2][2];
+// 	int weight[2][2];
+// 	int i, j, tile;
+// 	int a, b, best;
+// 	MAPTILE *psTile;
+
+// 	if (x < 0 || y < 0 || x >= mapWidth || y >= mapHeight)
+// 	{
+// 		return 0; // just return the first ground type
+// 	}
+
+// 	// check what tiles surround this grid point
+// 	for (i = 0; i < 2; i++)
+// 	{
+// 		for (j = 0; j < 2; j++)
+// 		{
+// 			if (x + i - 1 < 0 || y + j - 1 < 0 || x + i - 1 >= mapWidth 
+// 			|| y + j - 1 >= mapHeight)
+// 			{
+// 				psTile = nullptr;
+// 				tile = 0;
+// 			}
+// 			else
+// 			{
+// 				psTile = mapTile(x + i - 1, y + j - 1);
+// 				tile = psTile->texture;
+// 			}
+// 			a = i;
+// 			b = j;
+// 			rotFlip(tile, &a, &b);
+// 			ground[i][j] = groundFromMapTile(tile, a, b);
+
+// 			votes[i][j] = 0;
+// 			// votes are weighted, some tiles have more weight than others
+// 			weight[i][j] = 10;
+
+// 			if (psTile)
+// 			{
+// 				// cliff tiles have higher priority, to be clearly visible
+// 				if (terrainType(psTile) == TER_CLIFFFACE)
+// 				{
+// 					weight[i][j] = 100;
+// 				}
+// 				// water bottom has lower priority, to stay inside water
+// 				if (terrainType(psTile) == TER_WATER)
+// 				{
+// 					weight[i][j] = 1;
+// 				}
+// 			}
+// 		}
+// 	}
+
+// 	// now vote, because some maps have seams
+// 	for (i = 0; i < 2; i++)
+// 	{
+// 		for (j = 0; j < 2; j++)
+// 		{
+// 			for (a = 0; a < 2; a++)
+// 			{
+// 				for (b = 0; b < 2; b++)
+// 				{
+// 					if (ground[i][j] == ground[a][b])
+// 					{
+// 						votes[i][j] += weight[a][b];
+// 					}
+// 				}
+// 			}
+// 		}
+// 	}
+// 	// and determine the winner
+// 	best = -1;
+// 	a = 0;
+// 	b = 0;
+// 	for (i = 0; i < 2; i++)
+// 	{
+// 		for (j = 0; j < 2; j++)
+// 		{
+// 			if (votes[i][j] > best || (votes[i][j] == best && ground[i][j] < ground[a][b]))
+// 			{
+// 				best = votes[i][j];
+// 				a = i;
+// 				b = j;
+// 			}
+// 		}
+// 	}
+// 	return ground[a][b];
+// }
 
 
 // SetDecals()
 // reads in the decal array for the requested tileset.
+// example: SetDecals("tileset/rockiedecals.txt", "rockie_decals");
 static void SetDecals(const char *filename, const char *decal_type)
 {
 	char decalname[MAX_STR_LENGTH], *pFileData;
@@ -962,6 +1072,7 @@ bool mapLoadFromWzMapData(std::shared_ptr<WzMap::MapData> loadedMap)
 	for (int i = 0; i < mapWidth * mapHeight; ++i)
 	{
 		ASSERT(loadedMap->mMapTiles[i].height <= TILE_MAX_HEIGHT, "Tile height (%" PRIu16 ") exceeds TILE_MAX_HEIGHT (%zu)", loadedMap->mMapTiles[i].height, static_cast<size_t>(TILE_MAX_HEIGHT));
+		if (i == 5) debug(LOG_TERRAIN, "tile %i, texture %i, %i, %i", i, loadedMap->mMapTiles[i].texture, loadedMap->mMapTiles[i].texture&  0x01ff, loadedMap->mMapTiles[i].height);
 		psMapTiles[i].texture = loadedMap->mMapTiles[i].texture;
 		psMapTiles[i].height = loadedMap->mMapTiles[i].height;
 

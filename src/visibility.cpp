@@ -975,6 +975,8 @@ bool lineOfFire(const SIMPLE_OBJECT *psViewer, const BASE_OBJECT *psTarget, int 
 		 * indirect shots always have a line of fire, IF the forced
 		 * minimum angle doesn't move it out of range
 		 **/
+
+		
 		int min_angle = checkFireLine(psViewer, psTarget, weapon_slot, wallsBlock, false);
 		// NOTE This code seems similar to the code in combFire in combat.cpp.
 		if (min_angle > DEG(PROJ_MAX_PITCH))
@@ -984,6 +986,7 @@ bool lineOfFire(const SIMPLE_OBJECT *psViewer, const BASE_OBJECT *psTarget, int 
 				range = (range * iSin(2 * min_angle)) / iSin(2 * DEG(PROJ_MAX_PITCH));
 			}
 		}
+		if (((const DROID *)psViewer)->player == 0) debug(LOG_INFO, "indirect weapon lineoffire %i", range >= distance);
 		return range >= distance;
 	}
 }
