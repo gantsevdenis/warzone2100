@@ -847,9 +847,9 @@ void	kf_TileInfo()
 {
 	MAPTILE	*psTile = mapTile(mouseTileX, mouseTileY);
 
-	debug(LOG_ERROR, "Tile position=(%d, %d) Terrain=%d Texture=%u Height=%d Illumination=%u",
+	debug(LOG_ERROR, "Tile position=(%d, %d) Terrain=%d Tilenum=%u Height=%d Illumination=%u Ground=%u GroundTxtrName=%s",
 	      mouseTileX, mouseTileY, (int)terrainType(psTile), TileNumber_tile(psTile->texture), psTile->height,
-	      psTile->illumination);
+	      psTile->illumination, psTile->ground, psGroundTypes[psTile->ground].textureName);
 	addConsoleMessage(_("Tile info dumped into log"), DEFAULT_JUSTIFY, SYSTEM_MESSAGE);
 }
 

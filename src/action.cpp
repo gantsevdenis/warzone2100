@@ -2219,7 +2219,10 @@ static void actionDroidBase(DROID *psDroid, DROID_ACTION_DATA *psAction)
 	syncDebugDroid(psDroid, '-');
 	syncDebug("%d does %s", psDroid->id, getDroidActionName(psAction->action));
 	objTrace(psDroid->id, "base set action to %s (was %s)", getDroidActionName(psAction->action), getDroidActionName(psDroid->action));
-
+	/*if (psAction->action == DACTION_ATTACK && psDroid->action==DACTION_NONE && psDroid->player == 0)
+	{
+		_debugBacktrace(LOG_INFO);
+	}*/
 	DROID_ORDER_DATA *order = &psDroid->order;
 	bool hasValidWeapon = false;
 	for (int i = 0; i < MAX_WEAPONS; i++)

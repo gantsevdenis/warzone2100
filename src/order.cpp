@@ -703,6 +703,8 @@ void orderUpdateDroid(DROID *psDroid)
 		break;
 	case DORDER_ATTACK:
 	case DORDER_ATTACKTARGET:
+	{
+		psWall = visGetBlockingWall(psDroid, psDroid->order.psObj);
 		if (psDroid->order.psObj == nullptr || psDroid->order.psObj->died)
 		{
 			// if vtol then return to rearm pad as long as there are no other
@@ -726,6 +728,7 @@ void orderUpdateDroid(DROID *psDroid)
 		         actionVisibleTarget(psDroid, psDroid->order.psObj, 0) && !isVtolDroid(psDroid))
 		{
 			// moved near enough to attack change to attack action
+			// debug(LOG_INFO, "%i attacking!!", psDroid->id);
 			actionDroid(psDroid, DACTION_ATTACK, psDroid->order.psObj);
 		}
 		else if ((psDroid->action == DACTION_MOVETOATTACK) &&
@@ -756,12 +759,15 @@ void orderUpdateDroid(DROID *psDroid)
 				// target is not in range and DSS_HALT_HOLD: give up, don't move
 				psDroid->order = DroidOrder(DORDER_NONE);
 			}
-			else if (!isVtolDroid(psDroid) || allVtolsRearmed(psDroid))
+			else if ((!isVtolDroid(psDroid) || allVtolsRearmed(psDroid)) 
+			         && !psWall)
 			{
+				debug(LOG_INFO, "%i attacking2!! %i", psDroid->id, psWall == nullptr);
 				actionDroid(psDroid, DACTION_ATTACK, psDroid->order.psObj);
 			}
 		}
 		break;
+	}
 	case DORDER_BUILD:
 		if (psDroid->action == DACTION_BUILD &&
 		    psDroid->order.psObj == nullptr)

@@ -496,12 +496,12 @@ static int determineGroundType(int x, int y, const char *tileset)
 	int i, j, tile;
 	int a, b, best;
 	MAPTILE *psTile;
-
+	const bool debug_tile = x == 15 && y == 1;
 	if (x < 0 || y < 0 || x >= mapWidth || y >= mapHeight)
 	{
 		return 0; // just return the first ground type
 	}
-
+	fprintf(stderr, "tilenum %i %i %i\n", x, y, TileNumber_tile(mapTile(x, y)->texture)); 
 	// check what tiles surround this grid point
 	for (i = 0; i < 2; i++)
 	{
@@ -520,6 +520,16 @@ static int determineGroundType(int x, int y, const char *tileset)
 			a = i;
 			b = j;
 			rotFlip(tile, &a, &b);
+
+			
+			// if (debug_tile)
+			// {
+			// 	debug(LOG_TERRAIN, "tilenum: %i", TileNumber_tile(tile));
+			// }
+			// if ( TileNumber_tile(tile) >= 80)
+			// {
+			// 	debug(LOG_TERRAIN, "wtf? %i %i tilenum %i", x, y, TileNumber_tile(tile));
+			// }
 			ground[i][j] = groundFromMapTile(tile, a, b);
 
 			votes[i][j] = 0;
@@ -559,6 +569,7 @@ static int determineGroundType(int x, int y, const char *tileset)
 			}
 		}
 	}
+
 	// and determine the winner
 	best = -1;
 	a = 0;
@@ -574,6 +585,14 @@ static int determineGroundType(int x, int y, const char *tileset)
 				b = j;
 			}
 		}
+	}
+
+	if (debug_tile)
+	{
+		debug(LOG_TERRAIN, "ground: %i %i %i %i", ground[0][0],ground[0][1], ground[1][0], ground[1][1]);
+		debug(LOG_TERRAIN, "weights: %i %i %i %i", weight[0][0],weight[0][1], weight[1][0], weight[1][1]);
+		debug(LOG_TERRAIN, "votes: %i %i %i %i", votes[0][0],votes[0][1], votes[1][0], votes[1][1]);
+		debug(LOG_TERRAIN, "best ground: %i[%i][%i]", ground[a][b], a, b);
 	}
 	return ground[a][b];
 }
