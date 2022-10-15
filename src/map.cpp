@@ -486,7 +486,13 @@ static void rotFlip(int tile, int *i, int *j)
 	*i = invmap[rot][0];
 	*j = invmap[rot][1];
 }
-
+static void _debug_tile(int x, int y)
+{
+	MAPTILE *psTile = mapTile(x, y);
+	fprintf(stderr, "Tile position=(%d, %d) Terrain=%d Tilenum=%u Height=%d Ground=%u GroundTxtrName=%s\n",
+	      x, y, (int)terrainType(psTile), TileNumber_tile(psTile->texture), psTile->height,
+	      psTile->ground, psGroundTypes[psTile->ground].textureName);
+}
 /// Tries to figure out what ground type a grid point is from the surrounding tiles
 static int determineGroundType(int x, int y, const char *tileset)
 {
@@ -501,7 +507,7 @@ static int determineGroundType(int x, int y, const char *tileset)
 	{
 		return 0; // just return the first ground type
 	}
-	fprintf(stderr, "tilenum %i %i %i\n", x, y, TileNumber_tile(mapTile(x, y)->texture)); 
+	//_debug_tile(x, y); 
 	// check what tiles surround this grid point
 	for (i = 0; i < 2; i++)
 	{
@@ -668,9 +674,9 @@ static bool mapSetGroundTypes()
 		for (j = 0; j < mapHeight; j++)
 		{
 			MAPTILE *psTile = mapTile(i, j);
-
+			
 			psTile->ground = determineGroundType(i, j, tilesetDir);
-
+			_debug_tile(i, j);
 			if (hasDecals(i, j))
 			{
 				SET_TILE_DECAL(psTile);
