@@ -486,13 +486,40 @@ static void rotFlip(int tile, int *i, int *j)
 	*i = invmap[rot][0];
 	*j = invmap[rot][1];
 }
-static void _debug_tile(int x, int y)
+
+static void _debug_stable(int x, int y)
+{
+	const char *bool_to_s[] = {
+		"FALSE",
+		"TRUE"
+	};
+	MAPTILE *psTile = mapTile(x, y);
+	fprintf(stderr, "( %d, %d) Tilenum= %u"
+				" XFlipped=%s YFlipped=%s Rotation= %i TriFlipped=%s Height= %d\n",
+	      x, y,
+				TileNumber_tile(psTile->texture),
+				bool_to_s[(psTile->texture & TILE_XFLIP) > 0],
+				bool_to_s[(psTile->texture & TILE_YFLIP) > 0],
+				(psTile->texture & TILE_ROTMASK) >> TILE_ROTSHIFT,
+				bool_to_s[(psTile->texture & TILE_TRIFLIP) > 0],
+				psTile->height);
+}
+
+/*static void _debug_tile(int x, int y)
 {
 	MAPTILE *psTile = mapTile(x, y);
-	fprintf(stderr, "Tile position=(%d, %d) Terrain=%d Tilenum=%u Height=%d Ground=%u GroundTxtrName=%s\n",
-	      x, y, (int)terrainType(psTile), TileNumber_tile(psTile->texture), psTile->height,
-	      psTile->ground, psGroundTypes[psTile->ground].textureName);
-}
+	fprintf(stderr, "(%d, %d) Terrain=%d Tilenum=%u Height=%d Ground=%u GroundTxtrName=%s"
+				" rotation=%i xflip=%i yflip=%i raw=0x%x\n",
+	      x, y, (int)terrainType(psTile),
+				TileNumber_tile(psTile->texture), psTile->height,
+	      psTile->ground,
+				psGroundTypes[psTile->ground].textureName,
+				(psTile->texture & TILE_ROTMASK) >> TILE_ROTSHIFT,
+				psTile->texture & TILE_XFLIP,
+				psTile->texture & TILE_YFLIP,
+				psTile->texture
+				);
+}*/
 /// Tries to figure out what ground type a grid point is from the surrounding tiles
 static int determineGroundType(int x, int y, const char *tileset)
 {
@@ -507,7 +534,7 @@ static int determineGroundType(int x, int y, const char *tileset)
 	{
 		return 0; // just return the first ground type
 	}
-	//_debug_tile(x, y); 
+	 
 	// check what tiles surround this grid point
 	for (i = 0; i < 2; i++)
 	{
@@ -676,7 +703,7 @@ static bool mapSetGroundTypes()
 			MAPTILE *psTile = mapTile(i, j);
 			
 			psTile->ground = determineGroundType(i, j, tilesetDir);
-			_debug_tile(i, j);
+			// _debug_stable(i, j);
 			if (hasDecals(i, j))
 			{
 				SET_TILE_DECAL(psTile);
@@ -982,14 +1009,30 @@ bool mapLoadFromWzMapData(std::shared_ptr<WzMap::MapData> loadedMap)
 	}
 
 	//load in the map data itself
-
+	const char *bool_to_s[] = {
+		"FALSE",
+		"TRUE"
+	};
 	/* Load in the map data */
 	for (int i = 0; i < mapWidth * mapHeight; ++i)
 	{
 		ASSERT(loadedMap->mMapTiles[i].height <= TILE_MAX_HEIGHT, "Tile height (%" PRIu16 ") exceeds TILE_MAX_HEIGHT (%zu)", loadedMap->mMapTiles[i].height, static_cast<size_t>(TILE_MAX_HEIGHT));
 		psMapTiles[i].texture = loadedMap->mMapTiles[i].texture;
 		psMapTiles[i].height = loadedMap->mMapTiles[i].height;
-
+		if (i == 51)
+		{
+			fprintf(stderr, "texture=0x%x height=0x%x", psMapTiles[i].texture, psMapTiles[i].height);
+			MAPTILE *psTile = &psMapTiles[i];
+			fprintf(stderr, "( %d, %d) Tilenum= %u"
+				" XFlipped=%s YFlipped=%s Rotation= %i TriFlipped=%s Height= %d\n",
+	      0, 51,
+				TileNumber_tile(psTile->texture),
+				bool_to_s[(psTile->texture & TILE_XFLIP) > 0],
+				bool_to_s[(psTile->texture & TILE_YFLIP) > 0],
+				(psTile->texture & TILE_ROTMASK) >> TILE_ROTSHIFT,
+				bool_to_s[(psTile->texture & TILE_TRIFLIP) > 0],
+				psTile->height);
+		}
 		// Visibility stuff
 		memset(psMapTiles[i].watchers, 0, sizeof(psMapTiles[i].watchers));
 		memset(psMapTiles[i].sensors, 0, sizeof(psMapTiles[i].sensors));
@@ -1083,6 +1126,7 @@ static bool afterMapLoad()
 			{
 				auxSetBlocking(x, y, FEATURE_BLOCKED);
 			}
+			_debug_stable(x, y);
 		}
 	}
 
