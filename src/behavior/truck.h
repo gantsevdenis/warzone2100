@@ -1,0 +1,5 @@
+#ifndef __INCLUDED_BEHAVIOR_TRUCK__
+#define __INCLUDED_BEHAVIOR_TRUCK__
+
+
+#endif

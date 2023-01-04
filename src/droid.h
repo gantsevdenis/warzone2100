@@ -452,7 +452,7 @@ void checkDroid(const DROID *droid, const char *const location_description, cons
 #define CHECK_DROID(droid) checkDroid(droid, AT_MACRO, __FUNCTION__, max_check_object_recursion)
 
 /** If droid can get to given object using its current propulsion, return the square distance. Otherwise return -1. */
-int droidSqDist(DROID *psDroid, BASE_OBJECT *psObj);
+int droidSqDist(const DROID *psDroid, const BASE_OBJECT *psObj);
 
 // Minimum damage a weapon will deal to its target
 #define	MIN_WEAPON_DAMAGE	1
@@ -464,6 +464,13 @@ void cancelBuild(DROID *psDroid);
 #define syncDebugDroid(psDroid, ch) _syncDebugDroid(__FUNCTION__, psDroid, ch)
 void _syncDebugDroid(const char *function, DROID const *psDroid, char ch);
 
+void droidSetActivity(DROID &psDroid, Activity::Type activity);
+
+Intentions::Type droidPeekIntention(const DROID &psDroid);
+
+void droidPopIntention(DROID &psDroid);
+
+void droidPushIntention(DROID &psDroid, const Intentions::Type intention);
 
 // True iff object is a droid.
 static inline bool isDroid(SIMPLE_OBJECT const *psObject)

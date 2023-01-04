@@ -28,7 +28,7 @@
 #define __INCLUDED_SRC_ORDER_H__
 
 #include "orderdef.h"
-
+#include "structuredef.h"
 /** Find some droid to repair, starting at (x, y) within some radius, given a player, or return nullptr.
  * Droids having full HP with order = DORDER_RTR or RTR_SPECIFIED will automatically
  * be sent to delivery point, or back to commander 
@@ -111,7 +111,7 @@ void orderSelectedStatsTwoLocDir(UDWORD player, DROID_ORDER order, STRUCTURE_STA
 bool secondarySupported(DROID *psDroid, SECONDARY_ORDER sec);
 
 /** \brief Gets the state of a secondary order, return false if unsupported. */
-SECONDARY_STATE secondaryGetState(DROID *psDroid, SECONDARY_ORDER sec, QUEUE_MODE mode = ModeImmediate);
+SECONDARY_STATE secondaryGetState(const DROID *psDroid, SECONDARY_ORDER sec, QUEUE_MODE mode = ModeImmediate);
 
 /** \brief Sets the state of a secondary order, return false if failed. */
 bool secondarySetState(DROID *psDroid, SECONDARY_ORDER sec, SECONDARY_STATE State, QUEUE_MODE mode = ModeQueue);
@@ -149,5 +149,21 @@ DROID_ORDER chooseOrderLoc(DROID *psDroid, UDWORD x, UDWORD y, bool altOrder);
 
 /** \brief Chooses an order from an object. */
 DroidOrder chooseOrderObj(DROID *psDroid, BASE_OBJECT *psObj, bool altOrder);
+
+struct RtrBestResult
+{
+	RTR_DATA_TYPE type;
+	BASE_OBJECT *psObj;
+	RtrBestResult(RTR_DATA_TYPE type, BASE_OBJECT *psObj): type(type), psObj(psObj) {}
+	RtrBestResult(): type(RTR_TYPE_NO_RESULT), psObj(nullptr) {}
+	RtrBestResult(DROID_ORDER_DATA *psOrder): type(psOrder->rtrType), psObj(psOrder->psObj) 
+	{
+		if (psObj->type == OBJ_STRUCTURE && ((STRUCTURE*)psObj)->pStructureType->type == REF_REPAIR_FACILITY) type = RTR_TYPE_REPAIR_FACILITY;
+		else if (psObj->type == OBJ_STRUCTURE) type = RTR_TYPE_HQ;
+		else type = RTR_TYPE_DROID;
+	}
+};
+
+RtrBestResult decideWhereToRepairAndBalance(const DROID *psDroid);
 
 #endif // __INCLUDED_SRC_ORDER_H__

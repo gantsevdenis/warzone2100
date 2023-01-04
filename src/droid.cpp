@@ -72,6 +72,8 @@
 #include "template.h"
 #include "qtscript.h"
 
+#include "behavior/behavior.h"
+
 #define DEFAULT_RECOIL_TIME	(GAME_TICKS_PER_SEC/4)
 #define	DROID_DAMAGE_SPREAD	(16 - rand()%32)
 #define	DROID_REPAIR_SPREAD	(20 - rand()%40)
@@ -100,34 +102,6 @@ int getTopExperience(int player)
 		return 0;
 	}
 	return recycled_experience[player].top();
-}
-void cancelBuild(DROID *psDroid)
-{
-	if (psDroid->order.type == DORDER_NONE || psDroid->order.type == DORDER_PATROL || psDroid->order.type == DORDER_HOLD || psDroid->order.type == DORDER_SCOUT || psDroid->order.type == DORDER_GUARD)
-	{
-		objTrace(psDroid->id, "Droid build action cancelled");
-		psDroid->order.psObj = nullptr;
-		psDroid->action = DACTION_NONE;
-		setDroidActionTarget(psDroid, nullptr, 0);
-		return;  // Don't cancel orders.
-	}
-
-	if (orderDroidList(psDroid))
-	{
-		objTrace(psDroid->id, "Droid build order cancelled - changing to next order");
-	}
-	else
-	{
-		objTrace(psDroid->id, "Droid build order cancelled");
-		psDroid->action = DACTION_NONE;
-		psDroid->order = DroidOrder(DORDER_NONE);
-		setDroidActionTarget(psDroid, nullptr, 0);
-
-		// The droid has no more build orders, so halt in place rather than clumping around the build objective
-		moveStopDroid(psDroid);
-
-		triggerEventDroidIdle(psDroid);
-	}
 }
 
 static void droidBodyUpgrade(DROID *psDroid)
@@ -651,6 +625,11 @@ void _syncDebugDroid(const char *function, DROID const *psDroid, char ch)
 	_syncDebugIntList(function, "%c droid%d = p%d;pos(%d,%d,%d),rot(%d,%d,%d),order%d(%d,%d)^%d,action%d,secondaryOrder%X,body%d,sMove(status%d,speed%d,moveDir%d,path%d/%d,src(%d,%d),target(%d,%d),destination(%d,%d),bump(%d,%d,%d,%d,(%d,%d),%d)),exp%u", list, ARRAY_SIZE(list));
 }
 
+bool working_on_droid(const DROID *psDroid)
+{
+	return (psDroid->player == 0 && psDroid->droidType ==  DROID_CONSTRUCT);
+}
+
 /* The main update routine for all droids */
 void droidUpdate(DROID *psDroid)
 {
@@ -723,7 +702,15 @@ void droidUpdate(DROID *psDroid)
 	orderUpdateDroid(psDroid);
 
 	// update the action of the droid
-	actionUpdateDroid(psDroid);
+	if (!working_on_droid(psDroid))
+	{
+		actionUpdateDroid(psDroid);
+	}
+	else
+	{
+		Constructor::gen_events(*psDroid);
+		Constructor::tick(*psDroid);
+	}
 
 	syncDebugDroid(psDroid, 'M');
 
@@ -968,109 +955,6 @@ DroidStartBuild droidStartBuild(DROID *psDroid)
 	return DroidStartBuildSuccess;
 }
 
-static void droidAddWeldSound(Vector3i iVecEffect)
-{
-	int iAudioID = ID_SOUND_CONSTRUCTION_1 + (rand() % 4);
-
-	audio_PlayStaticTrack(iVecEffect.x, iVecEffect.z, iAudioID);
-}
-
-static void addConstructorEffect(STRUCTURE *psStruct)
-{
-	if ((ONEINTEN) && (psStruct->visibleForLocalDisplay()))
-	{
-		/* This needs fixing - it's an arse effect! */
-		const Vector2i size = psStruct->size() * TILE_UNITS / 4;
-		Vector3i temp;
-		temp.x = psStruct->pos.x + ((rand() % (2 * size.x)) - size.x);
-		temp.y = map_TileHeight(map_coord(psStruct->pos.x), map_coord(psStruct->pos.y)) + (psStruct->sDisplay.imd->max.y / 6);
-		temp.z = psStruct->pos.y + ((rand() % (2 * size.y)) - size.y);
-		if (rand() % 2)
-		{
-			droidAddWeldSound(temp);
-		}
-	}
-}
-
-/* Update a construction droid while it is building
-   returns true while building continues */
-bool droidUpdateBuild(DROID *psDroid)
-{
-	CHECK_DROID(psDroid);
-	ASSERT_OR_RETURN(false, psDroid->action == DACTION_BUILD, "%s (order %s) has wrong action for construction: %s",
-					 droidGetName(psDroid), getDroidOrderName(psDroid->order.type), getDroidActionName(psDroid->action));
-
-	STRUCTURE *psStruct = castStructure(psDroid->order.psObj);
-	if (psStruct == nullptr)
-	{
-		// Target missing, stop trying to build it.
-		psDroid->action = DACTION_NONE;
-		return false;
-	}
-
-	ASSERT_OR_RETURN(false, psStruct->type == OBJ_STRUCTURE, "target is not a structure");
-	ASSERT_OR_RETURN(false, psDroid->asBits[COMP_CONSTRUCT] < numConstructStats, "Invalid construct pointer for unit");
-
-	// First check the structure hasn't been completed by another droid
-	if (psStruct->status == SS_BUILT)
-	{
-		// Check if line order build is completed, or we are not carrying out a line order build
-		if (psDroid->order.type != DORDER_LINEBUILD ||
-			map_coord(psDroid->order.pos) == map_coord(psDroid->order.pos2))
-		{
-			cancelBuild(psDroid);
-		}
-		else
-		{
-			psDroid->action = DACTION_NONE;	// make us continue line build
-			setDroidTarget(psDroid, nullptr);
-			setDroidActionTarget(psDroid, nullptr, 0);
-		}
-		return false;
-	}
-
-	// make sure we still 'own' the building in question
-	if (!aiCheckAlliances(psStruct->player, psDroid->player))
-	{
-		cancelBuild(psDroid);		// stop what you are doing fool it isn't ours anymore!
-		return false;
-	}
-
-	unsigned constructPoints = constructorPoints(asConstructStats + psDroid->
-										asBits[COMP_CONSTRUCT], psDroid->player);
-
-	unsigned pointsToAdd = constructPoints * (gameTime - psDroid->actionStarted) /
-				  GAME_TICKS_PER_SEC;
-
-	structureBuild(psStruct, psDroid, pointsToAdd - psDroid->actionPoints, constructPoints);
-
-	//store the amount just added
-	psDroid->actionPoints = pointsToAdd;
-
-	addConstructorEffect(psStruct);
-
-	return true;
-}
-
-bool droidUpdateDemolishing(DROID *psDroid)
-{
-	CHECK_DROID(psDroid);
-
-	ASSERT_OR_RETURN(false, psDroid->action == DACTION_DEMOLISH, "unit is not demolishing");
-	STRUCTURE *psStruct = (STRUCTURE *)psDroid->order.psObj;
-	ASSERT_OR_RETURN(false, psStruct->type == OBJ_STRUCTURE, "target is not a structure");
-
-	int constructRate = 5 * constructorPoints(asConstructStats + psDroid->asBits[COMP_CONSTRUCT], psDroid->player);
-	int pointsToAdd = gameTimeAdjustedAverage(constructRate);
-
-	structureDemolish(psStruct, psDroid, pointsToAdd);
-
-	addConstructorEffect(psStruct);
-
-	CHECK_DROID(psDroid);
-
-	return true;
-}
 
 void droidStartAction(DROID *psDroid)
 {
@@ -1647,7 +1531,9 @@ DROID *reallyBuildDroid(const DROID_TEMPLATE *pTemplate, Position pos, UDWORD pl
 	// Avoid droid appearing to jump or turn on spawn.
 	psDroid->prevSpacetime.pos = psDroid->pos;
 	psDroid->prevSpacetime.rot = psDroid->rot;
-
+	psDroid->activity = Activity::Type::Idle;
+//	debug(LOG_INFO, "setup activity for droid %i %i", psDroid->id, psDroid->player);
+	psDroid->intentions.emplace(Intentions::Type::None);
 	debug(LOG_LIFE, "created droid for player %d, droid = %p, id=%d (%s): position: x(%d)y(%d)z(%d)", player, static_cast<void *>(psDroid), (int)psDroid->id, psDroid->aName, psDroid->pos.x, psDroid->pos.y, psDroid->pos.z);
 
 	return psDroid;
@@ -3419,7 +3305,7 @@ void checkDroid(const DROID *droid, const char *const location, const char *func
 	}
 }
 
-int droidSqDist(DROID *psDroid, BASE_OBJECT *psObj)
+int droidSqDist(const DROID *psDroid, const BASE_OBJECT *psObj)
 {
 	PROPULSION_STATS *psPropStats = asPropulsionStats + psDroid->asBits[COMP_PROPULSION];
 
@@ -3428,4 +3314,52 @@ int droidSqDist(DROID *psDroid, BASE_OBJECT *psObj)
 		return -1;
 	}
 	return objPosDiffSq(psDroid->pos, psObj->pos);
+}
+
+void droidSetActivity(DROID &psDroid, Activity::Type activity)
+{
+	psDroid.activity = activity;
+}
+
+Intentions::Type droidPeekIntention(const DROID &psDroid)
+{
+	return psDroid.intentions.top();
+}
+
+// when intention has been poped, we need to reset activity to something valid
+void droidResetActivity (DROID &droid, Intentions::None new_intention)
+{
+	droidSetActivity(droid, Activity::Type::Idle);
+}
+
+void droidResetActivity (DROID &droid, Intentions::MoveToPlace new_intention)
+{
+//	Intentions::Data_MoveToPlace &data = Backstorage::Intentions1::move_to_place.at (droid.id).top ();
+}
+
+// Pops intention, pops its data, and modifies the Activity
+void droidPopIntention(DROID &droid)
+{
+	if (droid.intentions.size () == 1)
+	{
+		ASSERT(false, "attempt to pop empty intention stack");
+		return;
+	}
+	Backstorage::Intentions1::pop (droid.id, droid.intentions.top ());
+	droid.intentions.pop();
+	Intentions::Type new_top = droid.intentions.top ();
+	switch (new_top)
+	{
+	case Intentions::Type::None:
+		return droidResetActivity (droid, Intentions::None {});
+	case Intentions::Type::MoveToPlace:
+		return droidResetActivity (droid, Intentions::MoveToPlace {});
+	default:
+		debug (LOG_ERROR, "unhandled intention %i for droid %i", (int) new_top, droid.id);
+	}
+}
+
+void droidPushIntention(DROID &psDroid, const Intentions::Type intention)
+{
+	psDroid.intentions.emplace(intention);
 }

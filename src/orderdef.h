@@ -195,6 +195,24 @@ struct DroidOrder
 
 };
 
+struct Data_Intentions
+{
+union {
+	struct {
+	Vector2i         pos;
+	} move_to_place;
+	uint32_t         index;
+	RTR_DATA_TYPE	 rtrType;
+	struct
+	{
+	union {
+		DROID           *psDroid;
+		STRUCTURE_STATS *psStats;
+	}} move_to_build;
+
+	}
+};
+
 typedef DroidOrder DROID_ORDER_DATA;
 
 #endif // __INCLUDED_SRC_ORDERDEF_H__

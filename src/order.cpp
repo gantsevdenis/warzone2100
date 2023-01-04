@@ -108,22 +108,6 @@ extern char DROIDDOING[512];
 	ASSERT_OR_RETURN(retVal, player < MAX_PLAYERS, "Invalid player: %" PRIu32 "", player);
 
 //////////////////////////////////////////////////////////////////
-struct RtrBestResult
-{
-	RTR_DATA_TYPE type;
-	BASE_OBJECT *psObj;
-	RtrBestResult(RTR_DATA_TYPE type, BASE_OBJECT *psObj): type(type), psObj(psObj) {}
-	RtrBestResult(): type(RTR_TYPE_NO_RESULT), psObj(nullptr) {}
-	RtrBestResult(DROID_ORDER_DATA *psOrder): type(psOrder->rtrType), psObj(psOrder->psObj) 
-	{
-		if (psObj->type == OBJ_STRUCTURE && ((STRUCTURE*)psObj)->pStructureType->type == REF_REPAIR_FACILITY) type = RTR_TYPE_REPAIR_FACILITY;
-		else if (psObj->type == OBJ_STRUCTURE) type = RTR_TYPE_HQ;
-		else type = RTR_TYPE_DROID;
-	}
-};
-
-static RtrBestResult decideWhereToRepairAndBalance(DROID *psDroid);
-
 /** This function checks if the droid is off range. If yes, it uses actionDroid() to make the droid to move to its target if its target is on range, or to move to its order position if not.
  * @todo droid doesn't shoot while returning to the guard position.
  */
@@ -3068,7 +3052,7 @@ bool secondarySupported(DROID *psDroid, SECONDARY_ORDER sec)
 
 
 /** This function returns the droid order's secondary state of the secondary order.*/
-SECONDARY_STATE secondaryGetState(DROID *psDroid, SECONDARY_ORDER sec, QUEUE_MODE mode)
+SECONDARY_STATE secondaryGetState(const DROID *psDroid, SECONDARY_ORDER sec, QUEUE_MODE mode)
 {
 	uint32_t state = psDroid->secondaryOrder;
 
@@ -3243,7 +3227,7 @@ void secondaryCheckDamageLevel(DROID *psDroid)
 }
 // balance the load at random
 // always prefer faster repairs
-static inline RtrBestResult decideWhereToRepairAndBalance(DROID *psDroid)
+RtrBestResult decideWhereToRepairAndBalance(const DROID *psDroid)
 {
 	int bestDistToRepairFac = INT32_MAX, bestDistToRepairDroid = INT32_MAX;
 	int thisDistToRepair = 0;

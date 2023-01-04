@@ -35,7 +35,7 @@
 #include "weapondef.h"
 #include "orderdef.h"
 #include "actiondef.h"
-
+#include "behavior/defs.h"
 /*!
  * The number of components in the asParts / asBits arrays.
  * Weapons are stored separately, thus the maximum index into the array
@@ -122,6 +122,7 @@ struct DROID : public BASE_OBJECT
 	OrderList       asOrderList;                    ///< The range [0; listSize - 1] corresponds to synchronised orders, and the range [listPendingBegin; listPendingEnd - 1] corresponds to the orders that will remain, once all orders are synchronised.
 	unsigned        listPendingBegin;               ///< Index of first order which will not be erased by a pending order. After all messages are processed, the orders in the range [listPendingBegin; listPendingEnd - 1] will remain.
 	/* Order data */
+	
 	DROID_ORDER_DATA order;
 
 #ifdef DEBUG
@@ -140,7 +141,9 @@ struct DROID : public BASE_OBJECT
 	int             secondaryOrderPendingCount;     ///< Number of pending secondary order changes.
 
 	/* Action data */
-	DROID_ACTION    action;
+	DROID_ACTION      action;
+	Activity::Type    activity; // replaces "action"
+	std::stack<Intentions::Type>   intentions;
 	Vector2i        actionPos;
 	BASE_OBJECT    *psActionTarget[MAX_WEAPONS] = {}; ///< Action target object
 	UDWORD          actionStarted;                  ///< Game time action started

@@ -23,6 +23,7 @@
 
 #ifndef __INCLUDED_SRC_ACTIONDEF_H__
 #define __INCLUDED_SRC_ACTIONDEF_H__
+#include "structuredef.h"
 
 /**
  * What a droid is currently doing. Not necessarily the same as its order as the micro-AI may get a droid to do
