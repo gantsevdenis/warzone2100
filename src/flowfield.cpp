@@ -28,6 +28,7 @@
 #include "lib/ivis_opengl/piemode.h"
 #include "lib/ivis_opengl/pieblitfunc.h"
 #include "lib/ivis_opengl/pieclip.h"
+#include "lib/wzmaplib/include/wzmaplib/map.h"
 
 static bool flowfieldEnabled = false;
 
@@ -286,7 +287,6 @@ struct VectorT {
 
 	void normalize() {
 		const float length = std::sqrt(std::pow(x, 2) + std::pow(y, 2));
-
 		if (length != 0) {
 			x /= length;
 			y /= length;
@@ -617,6 +617,7 @@ void initCostFields()
 			}
 		}
 	}
+	debug (LOG_FLOWFIELD, "init cost field done.");
 }
 
 void destroyCostFields()
@@ -631,40 +632,34 @@ void destroyflowfieldCaches() {
 }
 
 void debugDrawFlowfield(const glm::mat4 &mvp) {
-	const auto playerXTile = map_coord(player.p.x);
-	const auto playerZTile = map_coord(player.p.z);
+	const auto playerXTile = map_coord(playerPos.p.x);
+	const auto playerZTile = map_coord(playerPos.p.z);
 	
 	const auto& costField = costFields[propulsionToIndex.at(PROPULSION_TYPE_WHEELED)];
-
 	for (auto deltaX = -6; deltaX <= 6; deltaX++)
 	{
 		const auto x = playerXTile + deltaX;
 
-		if(x < 0){
-			continue;
-		}
+		if(x < 0) continue;
 		
 		for (auto deltaZ = -6; deltaZ <= 6; deltaZ++)
 		{
 			const auto z = playerZTile + deltaZ;
 
-			if(z < 0){
-				continue;
-			}
+			if(z < 0) continue;
 
-			const float XA = world_coord(x);
-			const float XB = world_coord(x + 1);
-			const float ZA = world_coord(z);
-			const float ZB = world_coord(z + 1);
-			const float YAA = map_TileHeight(x, z);
-			const float YBA = map_TileHeight(x + 1, z);
-			const float YAB = map_TileHeight(x, z + 1);
-			const float YBB = map_TileHeight(x + 1, z + 1);
+			const int XA = world_coord(x);
+			const int XB = world_coord(x + 1);
+			const int ZA = world_coord(z);
+			const int ZB = world_coord(z + 1);
+			const int YAA = map_TileHeight(x, z);
+			const int YBA = map_TileHeight(x + 1, z);
+			const int YAB = map_TileHeight(x, z + 1);
+			const int YBB = map_TileHeight(x + 1, z + 1);
 			
-			float height = map_TileHeight(x, z);
+			int height = map_TileHeight(x, z);
 
 			// tile
-
 			iV_PolyLine({
 				{ XA, YAA, -ZA },
 				{ XA, YAB, -ZB },
@@ -678,10 +673,11 @@ void debugDrawFlowfield(const glm::mat4 &mvp) {
 			const Vector3i a = { (XA + 20), height, -(ZA + 20) };
 			Vector2i b;
 
-			pie_RotateProject(&a, mvp, &b);
+			pie_RotateProjectWithPerspective(&a, mvp, &b);
 			auto cost = costField->getCost(x, z);
-			if(cost != COST_NOT_PASSABLE){
-				WzText costText(std::to_string(cost), font_small);
+			if(cost != COST_NOT_PASSABLE)
+			{
+				WzText costText(WzString::fromUtf8(std::to_string(cost)), font_small);
 				costText.render(b.x, b.y, WZCOL_TEXT_BRIGHT);
 			}
 			
@@ -693,7 +689,7 @@ void debugDrawFlowfield(const glm::mat4 &mvp) {
 				const Vector3i positionText3dCoords = { (XA + 20), height, -(ZB - 20) };
 				Vector2i positionText2dCoords;
 
-				pie_RotateProject(&positionText3dCoords, mvp, &positionText2dCoords);
+				pie_RotateProjectWithPerspective(&positionText3dCoords, mvp, &positionText2dCoords);
 				WzText positionText(positionString, font_small);
 				positionText.render(positionText2dCoords.x, positionText2dCoords.y, WZCOL_LBLUE);
 			}
@@ -721,23 +717,22 @@ void debugDrawFlowfield(const glm::mat4 &mvp) {
 
 		flowfieldsToDraw.insert(flowfieldById.at(psDroid->sMove.flowfield));
 	}
-
-	for(auto flowfield : flowfieldsToDraw){
+	
+	for(auto flowfield : flowfieldsToDraw)
+	{
+		//debug (LOG_INFO, "to draw was %li, X=%i Z=%i %li", flowfieldsToDraw.size (), playerXTile, playerZTile, flowfield->goals.size ());
 		for (auto deltaX = -6; deltaX <= 6; deltaX++)
 		{
-			const auto x = playerXTile + deltaX;
-
-			if(x < 0){
-				continue;
-			}
+			const int x = playerXTile + deltaX;
 			
+			if (x < 0) continue;
+
 			for (auto deltaZ = -6; deltaZ <= 6; deltaZ++)
 			{
-				const auto z = playerZTile + deltaZ;
+				const int z = playerZTile + deltaZ;
 
-				if(z < 0){
-					continue;
-				}
+				if (z < 0) continue;
+				
 				
 				const float XA = world_coord(x);
 				const float ZA = world_coord(z);
@@ -771,18 +766,17 @@ void debugDrawFlowfield(const glm::mat4 &mvp) {
 
 				// integration fields
 
-				const Vector3i integrationFieldText3dCoordinates = { (XA + 20), height, -(ZA + 40) };
+				const Vector3i integrationFieldText3dCoordinates { (XA + 20), height, -(ZA + 40) };
 				Vector2i integrationFieldText2dCoordinates;
 
-				pie_RotateProject(&integrationFieldText3dCoordinates, mvp, &integrationFieldText2dCoordinates);
+				pie_RotateProjectWithPerspective(&integrationFieldText3dCoordinates, mvp, &integrationFieldText2dCoordinates);
 				auto integrationCost = flowfield->integrationField->getCost(x, z);
 				if(integrationCost != COST_NOT_PASSABLE){
-					WzText costText(std::to_string(integrationCost), font_small);
+					WzText costText(WzString::fromUtf8 (std::to_string(integrationCost)), font_small);
 					costText.render(integrationFieldText2dCoordinates.x, integrationFieldText2dCoordinates.y, WZCOL_TEXT_BRIGHT);
 				}
 			}
 		}
-
 		// goal
 
 		for(auto goal : flowfield->goals){

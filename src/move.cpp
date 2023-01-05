@@ -2176,7 +2176,7 @@ void moveUpdateDroid(DROID *psDroid)
 			// Get the best control point.
 			if (psDroid->sMove.asPath.size() == 0 || !moveBestTarget(psDroid))
 			{
-				printf("Stuck\n");
+				debug(LOG_FLOWFIELD, "Stuck\n");
 				// Got stuck somewhere, can't find the path.
 				moveDroidTo(psDroid, psDroid->sMove.destination.x, psDroid->sMove.destination.y);
 			}
@@ -2299,13 +2299,13 @@ void moveUpdateDroid(DROID *psDroid)
 	}
 
 	if(psDroid->sMove.Status != MOVEINACTIVE){
-		printf("%s\n", moveDescription(psDroid->sMove.Status));
+		debug(LOG_FLOWFIELD, "%s\n", moveDescription(psDroid->sMove.Status));
 	}
 
 	// See if it's got blocked
 	if ((psPropStats->propulsionType != PROPULSION_TYPE_LIFT) && moveBlocked(psDroid))
 	{
-		printf("MOVETURN\n");
+		debug(LOG_FLOWFIELD, "MOVETURN\n");
 		objTrace(psDroid->id, "status: id %d blocked", (int)psDroid->id);
 		psDroid->sMove.Status = MOVETURN;
 	}
