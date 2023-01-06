@@ -72,6 +72,12 @@ void flowfieldInit();
 /// Deinitialises flowfield pathfinding.
 void flowfieldDestroy();
 
+/// update cost field: mark a tile as impassable
+void markTileAsImpassable(unsigned short x, unsigned short y, PROPULSION_TYPE prop);
+
+/// update cost field: mark as passable again
+void markTileAsDefaultCost(unsigned short x, unsigned short y, PROPULSION_TYPE prop);
+
 /// Returns true and populates flowfieldId if a flowfield exists for the specified target.
 bool tryGetFlowfieldForTarget(unsigned int targetX, unsigned int targetY, PROPULSION_TYPE propulsion, unsigned int &flowfieldId);
 /// Starts to generate a flowfield for the specified target.
