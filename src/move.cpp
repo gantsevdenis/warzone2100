@@ -1264,6 +1264,7 @@ static Vector2i moveGetObstacleVector(DROID *psDroid, Vector2i dest)
 	return dest * (65536 - ratio) + avoid * ratio;
 }
 
+
 /*!
  * Get a direction for a droid to avoid obstacles etc.
  * \param psDroid Which droid to examine
@@ -1278,7 +1279,7 @@ static uint16_t moveGetDirection(DROID *psDroid)
 	// Transporters don't need to avoid obstacles, but everyone else should
 	if (!isTransporter(psDroid))
 	{
-		// dest = moveGetObstacleVector(psDroid, dest);
+		dest = moveGetObstacleVector(psDroid, dest);
 	}
 
 	return iAtan2(dest);
@@ -2170,10 +2171,10 @@ void moveUpdateDroid(DROID *psDroid)
 						// this makes the droid to move into flowfield direction
 						// because it's used to calculate moveDir
 						psDroid->sMove.target = psDroid->pos.xy() + Vector2i(vector.x * 512, vector.y * 512); // psDroid->pos.xy() + Vector2i(vector.x * 500, vector.y * 500);
-						if (psDroid->player == 0)
-							debug (LOG_FLOWFIELD, "droid %i src=%i %i, target=%i %i", psDroid->id,
-							psDroid->sMove.src.x, psDroid->sMove.src.y,
-							psDroid->sMove.target.x, psDroid->sMove.target.y);
+						// if (psDroid->player == 0)
+						// 	debug (LOG_FLOWFIELD, "droid %i src=%i %i, target=%i %i", psDroid->id,
+						// 	psDroid->sMove.src.x, psDroid->sMove.src.y,
+						// 	psDroid->sMove.target.x, psDroid->sMove.target.y);
 				} else {
 						psDroid->sMove.Status = MOVEINACTIVE;
 				}

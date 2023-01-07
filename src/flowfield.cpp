@@ -52,13 +52,24 @@ inline uint16_t tileTo2Dindex (Vector2i tile)
 
 inline Vector2i tileFrom2Dindex (uint16_t idx)
 {
-	return Vector2i {(idx & 0xFF00) >> 8, (idx & 0x00FF)};
+	return Vector2i {(idx) >> 8, (idx & 0x00FF)};
 }
+
 
 inline void tileFrom2Dindex (uint16_t idx, uint8_t &x, uint8_t &y)
 {
-	x = (idx & 0xFF00) >> 8;
+	x = (idx) >> 8;
 	y = (idx & 0x00FF);
+}
+
+inline uint8_t xFrom2Dindex (uint16_t idx)
+{
+	return (idx >> 8);
+}
+
+inline uint8_t yFrom2Dindex (uint16_t idx)
+{
+	return (idx & 0x00FF);
 }
 
 #define FF_MAP_WIDTH 256
@@ -272,13 +283,21 @@ struct IntegrationField
 		this->cost[index] = value;
 	}
 
-	void setHasLOS(uint8_t x, uint8_t y)
+	void setHasLOS(uint16_t idx)
 	{
-		this->cost[tileTo2Dindex(x, y)] |= (1 << 15);
+		this->cost[idx] |= (1 << 15);
 	}
 	void clearLOS(uint8_t x, uint8_t y)
 	{
 		this->cost[tileTo2Dindex(x, y)] &= ~(1 << 15);
+	}
+	bool hasLOS(uint16_t idx)
+	{
+		return (this->cost[idx] & (1 << 15)) > 0;
+	}
+	bool hasLOS(uint8_t x, uint8_t y)
+	{
+		return (this->cost[tileTo2Dindex(x, y)]  & (1 << 15)) > 0;
 	}
 };
 
@@ -474,11 +493,69 @@ void calculateIntegrationField(uint16_t goal,
 	// First we go where cost is the lowest, so we don't discover better path later.
 	std::priority_queue<Node> openSet;
 	openSet.push(Node { 0, goal });
+	integrationField->setHasLOS(goal);
 	while (!openSet.empty())
 	{
 		integrateFlowfieldPoints(openSet, integrationField, costField, goal, &stationaryDroids);
 		openSet.pop();
 	}
+}
+
+/** Sets LOS flag for those cells, from which Goal is visible, from all 8 directions.
+ * Example : https://howtorts.github.io/2014/01/30/Flow-Fields-LOS.html
+ * Without LOS, even in straight line to the goal, flowfield vectors may point in
+ * wierd, from human perspective, directions.
+*/
+void calculateLOS(IntegrationField *integfield, uint16_t at, uint16_t goal)
+{
+	if (at == goal)
+	{
+		integfield->setHasLOS(at);
+		return;
+	}
+	ASSERT (integfield->hasLOS(goal), "invariant failed: goal must have LOS");
+	// we want signed difference
+	int16_t dx, dy;
+	Vector2i at_tile = tileFrom2Dindex (at);
+	dx = static_cast<int16_t>(xFrom2Dindex(goal)) - static_cast<int16_t>(xFrom2Dindex(at));
+	dy = static_cast<int16_t>(yFrom2Dindex(goal)) - static_cast<int16_t>(yFrom2Dindex(at));
+	
+	int16_t dx_one, dy_one;
+	dx_one = dx > 0 ? 1 : -1; // cannot be zero, already checked above
+	dy_one = dy > 0 ? 1 : -1;
+	
+	uint8_t dx_abs, dy_abs;
+	dx_abs = std::abs(dx);
+	dy_abs = std::abs(dy);
+	bool has_los = false;
+
+	// if the cell which 1 closer to goal has LOS, then we *may* have it too
+	if (dx_abs >= dy_abs)
+	{
+		if (integfield->hasLOS(at_tile.x + dx_one, at_tile.y))
+			has_los = true;
+	}
+	if (dy_abs >= dx_abs)
+	{
+		if (integfield->hasLOS(at_tile.x, at_tile.y + dy_one))
+			has_los = true;
+	}
+
+	if (dy_abs > 0 && dx_abs > 0)
+	{
+		// if the diagonal doesn't have LOS, we don't
+		if (!integfield->hasLOS(at_tile.x + dx_one, at_tile.y + dy_one))
+			has_los = false;
+		else if (dx_abs == dy_abs)
+		{
+			if (COST_NOT_PASSABLE == (integfield->getCost(at_tile.x + dx_one, at_tile.y)) ||
+				COST_NOT_PASSABLE == (integfield->getCost(at_tile.x, at_tile.y + dy_one)))
+				has_los = false;
+		}
+	}
+	if (has_los) integfield->setHasLOS(at);
+	// if (has_los) debug (LOG_FLOWFIELD, "has los %i %i", at_tile.x, at_tile.y);
+	return;
 }
 
 void integrateFlowfieldPoints(std::priority_queue<Node> &openSet,
@@ -504,9 +581,10 @@ void integrateFlowfieldPoints(std::priority_queue<Node> &openSet,
 	uint8_t x, y;
 	tileFrom2Dindex (node.index, x, y);
 
-	if (integrationCost < oldIntegrationCost) {
+	if (integrationCost < oldIntegrationCost)
+	{
 		integrationField->setCost(node.index, integrationCost);
-
+		calculateLOS(integrationField, node.index, goal);
 		// North
 		if (y > 0)
 		{
@@ -536,6 +614,7 @@ void calculateFlowfield(Flowfield* flowField, IntegrationField* integrationField
 	{
 		for (int x = 0; x < mapWidth; x++)
 		{
+			VectorT vector;
 			const auto cost = integrationField->getCost(x, y);
 			if (cost == COST_NOT_PASSABLE || cost == COST_MIN) {
 				// Skip goal and non-passable
@@ -543,7 +622,17 @@ void calculateFlowfield(Flowfield* flowField, IntegrationField* integrationField
 				flowField->setVector(x, y, VectorT { 0.0f, 0.0f });
 				continue;
 			}
-
+			// if we have LOS, then it's easy: just head straight to the goal
+			if (integrationField->hasLOS(x, y))
+			{
+				uint8_t goalx, goaly; 
+				tileFrom2Dindex(flowField->goal, goalx, goaly);
+				vector.x = goalx - x;
+				vector.y = goaly - y;
+				vector.normalize();
+				flowField->setVector(x, y, vector);
+				continue;
+			}
 			uint16_t leftCost = integrationField->getCost(x - 1, y);
 			uint16_t rightCost = integrationField->getCost(x + 1, y);
 			uint16_t topCost = integrationField->getCost(x, y - 1);
@@ -632,7 +721,7 @@ void calculateFlowfield(Flowfield* flowField, IntegrationField* integrationField
 				}
 			}
 
-			VectorT vector;
+			
 			vector.x = leftCost - rightCost;
 			vector.y = topCost - bottomCost;
 			vector.normalize();
@@ -648,7 +737,10 @@ void calculateFlowfield(Flowfield* flowField, IntegrationField* integrationField
 	}
 }
 
-/** Update a given tile as impossible to cross */
+/** Update a given tile as impossible to cross.
+ * TODO also must invalidate cached flowfields, because they
+ * were all based on obsolete cost/integration fields!
+ */
 void markTileAsImpassable(uint8_t x, uint8_t y, PROPULSION_TYPE prop)
 {
 	costFields[propulsionToIndexUnique.at(prop)]->setCost(x, y, COST_NOT_PASSABLE);
@@ -838,13 +930,12 @@ void debugDrawFlowfield(const glm::mat4 &mvp)
 					{ startPointX - 10, height, -startPointY - 10 },
 				}, mvp, WZCOL_WHITE);
 			}
-			// if (tileTo2Dindex (x, z) == flowfield->goal) cost = COST_ZERO;
 			// direction
-
+			bool has_los = flowfield->integrationField->hasLOS(x, z);
 			iV_PolyLine({
 				{ startPointX, height, -startPointY },
 				{ startPointX + vector.x * 75, height, -startPointY - vector.y * 75 },
-			}, mvp, WZCOL_WHITE);
+			}, mvp, has_los ? WZCOL_RED : WZCOL_WHITE);
 
 			// integration fields
 
