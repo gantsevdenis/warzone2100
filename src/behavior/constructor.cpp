@@ -210,9 +210,9 @@ bool on_event (DROID &droid, Intentions::MoveToBuild it, Activity::Building ac, 
 		}
 	}
 	
-	//psDroid->action = DACTION_NONE;	// make us continue line build
-	//setDroidTarget(psDroid, nullptr);
-	//setDroidActionTarget(psDroid, nullptr, 0);
+	//psDroid->action = DACTION_NONE;	// make us continue line builda
+	//setDroidTarget(psDroid, nullptr);a
+	//setDroidActionTarget(psDroid, nullptr, 0);a
 	droidPopIntention (droid);
 	return true;
 }
