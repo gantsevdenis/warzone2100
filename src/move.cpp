@@ -1278,7 +1278,7 @@ static uint16_t moveGetDirection(DROID *psDroid)
 	// Transporters don't need to avoid obstacles, but everyone else should
 	if (!isTransporter(psDroid))
 	{
-		dest = moveGetObstacleVector(psDroid, dest);
+		// dest = moveGetObstacleVector(psDroid, dest);
 	}
 
 	return iAtan2(dest);
