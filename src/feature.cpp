@@ -529,7 +529,7 @@ bool destroyFeature(FEATURE *psDel, unsigned impactTime)
 			}
 		}
 	}
-	markTileAsDefaultCost(map_coord(psDel->pos.x), map_coord(psDel->pos.y), PROPULSION_TYPE_WHEELED);
+	cbFeatureDestroyed(psDel);
 	removeFeature(psDel);
 	psDel->died = impactTime;
 	return true;

@@ -27,6 +27,14 @@
 #include "objectdef.h"
 #include "fpath.h"
 
+// doesn't have have to a power of two: just being a factor of FF_UNIT (flowfield.h) is enough
+static const uint16_t PersonRadius      = 1; // FF_UNITS = 32, Worldunits
+static const uint16_t CyborgRadius      = 1; // FF_UNITS = 32, probably make this bigger like 3 * FF_UNITS
+static const uint16_t SmallRadius       = 1; // FF_UNITS = 32,
+static const uint16_t MediumRadius      = 2; // FF_UNITS = 64,
+static const uint16_t LargeRadius       = 2; // FF_UNITS = 64, probably make this bigger, like 5 * FF_UNITS
+static const uint16_t ExtraLargeRadius  = 4; // FF_UNITS = 128,
+
 /* Set a target location for a droid to move to  - returns a bool based on if there is a path to the destination (true if there is a path)*/
 bool moveDroidTo(DROID *psDroid, UDWORD x, UDWORD y, FPATH_MOVETYPE moveType = FMT_MOVE);
 

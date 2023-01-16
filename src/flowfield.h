@@ -59,9 +59,9 @@
 // TODO: avoiding tiles marked as "threat" (only AI, or anyone? It would be nice if your own droids would prefer to avoid enemy when retreating)
 // TODO: maybe prefer visible tiles, or just discovered tiles (for player)
 // Both things would go into integration field probably. Note that adding visibility stuff would quickly require most integration and flow fields to be thrown away, since visibility changes all the time.
-
+#define FF_UNIT 32
 // possible directions
-enum class Directions
+enum class Directions : uint16_t
 {
 	DIR_NONE,
 	DIR_0,  DIR_1,    DIR_2,
@@ -104,20 +104,20 @@ void flowfieldInit();
 /// Deinitialises flowfield pathfinding.
 void flowfieldDestroy();
 
-/// update cost field: mark a tile as impassable
-void markTileAsImpassable(uint8_t x, uint8_t y, PROPULSION_TYPE prop);
+void cbStructureBuilt(const STRUCTURE *structure);
 
-/// update cost field: mark as passable again
-void markTileAsDefaultCost(uint8_t x, uint8_t y, PROPULSION_TYPE prop);
+void cbStructureDestroyed(const STRUCTURE *structure);
+
+void cbFeatureDestroyed(const FEATURE *feature);
 
 /// Returns true and populates flowfieldId if a flowfield exists for the specified target.
 bool tryGetFlowfieldForTarget(unsigned int targetX, unsigned int targetY, PROPULSION_TYPE propulsion, unsigned int &flowfieldId);
 /// Starts to generate a flowfield for the specified target.
 void calculateFlowfieldAsync(unsigned int targetX, unsigned int targetY, PROPULSION_TYPE propulsion);
 /// Returns true and populates vector if a directional vector exists for the specified flowfield and target position.
-bool tryGetFlowfieldVector(unsigned int flowfieldId, uint8_t x, uint8_t y, Vector2f& vector);
+// bool tryGetFlowfieldVector(unsigned int flowfieldId, uint8_t x, uint8_t y, Vector2f& vector);
 
-bool tryGetFlowfieldDirection(unsigned int flowfieldId, uint8_t x, uint8_t y, Directions &out);
+bool tryGetFlowfieldDirection(PROPULSION_TYPE prop, uint8_t x, uint8_t y, uint8_t radius, Directions &out);
 
 /// is tile (x, y) passable? We don't need propulsion argument, it's implicit for this particular flowfield
 bool flowfieldIsImpassable(unsigned int flowfieldId, uint8_t x, uint8_t y);

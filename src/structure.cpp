@@ -1504,10 +1504,10 @@ STRUCTURE *buildStructureDir(STRUCTURE_STATS *pStructureType, UDWORD x, UDWORD y
 				// We now know the previous loop didn't return early, so it is safe to save references to psBuilding now.
 				MAPTILE *psTile = mapTile(tileX, tileY);
 				psTile->psObject = psBuilding;
+				markTileAsImpassable (tileX, tileY, PROPULSION_TYPE_WHEELED);
 				if (psBuilding->player == 0)
 				{
-					markTileAsImpassable (tileX, tileY, PROPULSION_TYPE_WHEELED);
-					debug (LOG_FLOWFIELD, "marked tile as impassable %i %i", tileX, tileY);
+			//		debug (LOG_FLOWFIELD, "marked tile as impassable %i %i", tileX, tileY);
 				}                                
 				// if it's a tall structure then flag it in the map.
 				if (psBuilding->sDisplay.imd->max.y > TALLOBJECT_YMAX)
@@ -4540,7 +4540,6 @@ bool destroyStruct(STRUCTURE *psDel, unsigned impactTime)
 				{
 					psTile->illumination /= 2;
 				}
-				markTileAsDefaultCost(b.map.x + width, b.map.y + breadth, PROPULSION_TYPE_WHEELED);
 				if (psDel->player == 0)
 				debug (LOG_FLOWFIELD, "marked tiles as passable: %i %i", b.map.x + width, b.map.y + breadth);
 			}
@@ -4565,7 +4564,7 @@ bool destroyStruct(STRUCTURE *psDel, unsigned impactTime)
 			scoreUpdateVar(WD_STR_KILLED);
 		}
 	}
-
+	cbStructureDestroyed(psDel);
 	return true;
 }
 
@@ -5278,7 +5277,8 @@ void printStructureInfo(STRUCTURE *psStructure)
 			if (dbgInputManager.debugMappingsAllowed())
 			{
 				// TRANSLATORS: A debug output string (user-visible if debug mode is enabled)
-				console(_("ID %d - sensor range %d - ECM %d"), psStructure->id, structSensorRange(psStructure), structJammerPower(psStructure));
+				console(_("ID %d - sensor range %d - ECM %d - Radius %d"), psStructure->id, structSensorRange(psStructure), 
+				structJammerPower(psStructure), psStructure->sDisplay.imd->radius / 2);
 			}
 			break;
 		}
@@ -5293,12 +5293,14 @@ void printStructureInfo(STRUCTURE *psStructure)
 		    && psStructure->pStructureType->pSensor->location == LOC_TURRET)
 		{
 			unsigned int assigned_droids = countAssignedDroids(psStructure);
-			console(ngettext("%s - %u Unit assigned - Damage %d/%d", "%s - %u Units assigned - Hitpoints %d/%d", assigned_droids),
-			        getStatsName(psStructure->pStructureType), assigned_droids, psStructure->body, structureBody(psStructure));
+			console(ngettext("%s - %u Unit assigned - Damage %d/%d", "%s - %u Units assigned - Hitpoints %d/%d - Radius %d", assigned_droids),
+			        getStatsName(psStructure->pStructureType), assigned_droids, psStructure->body, structureBody(psStructure),
+					psStructure->sDisplay.imd->radius / 2);
 		}
 		else
 		{
-			console(_("%s - Hitpoints %d/%d"), getStatsName(psStructure->pStructureType), psStructure->body, structureBody(psStructure));
+			console(_("%s - Hitpoints %d/%d - Radius %d"), getStatsName(psStructure->pStructureType), psStructure->body, structureBody(psStructure),
+			          psStructure->sDisplay.imd->radius / 2);
 		}
 		if (dbgInputManager.debugMappingsAllowed())
 		{
@@ -5323,7 +5325,8 @@ void printStructureInfo(STRUCTURE *psStructure)
 		console(_("%s - Hitpoints %d/%d"), getStatsName(psStructure->pStructureType), psStructure->body, structureBody(psStructure));
 		if (dbgInputManager.debugMappingsAllowed() && selectedPlayer < MAX_PLAYERS)
 		{
-			console(_("ID %d - %s"), psStructure->id, (auxTile(map_coord(psStructure->pos.x), map_coord(psStructure->pos.y), selectedPlayer) & AUXBITS_DANGER) ? "danger" : "safe");
+			console(_("ID %d - %s - Radius %d"), psStructure->id, (auxTile(map_coord(psStructure->pos.x), 
+			map_coord(psStructure->pos.y), selectedPlayer) & AUXBITS_DANGER) ? "danger" : "safe", psStructure->sDisplay.imd->radius / 2);
 		}
 		break;
 	case REF_POWER_GEN:
@@ -5351,9 +5354,10 @@ void printStructureInfo(STRUCTURE *psStructure)
 		if (dbgInputManager.debugMappingsAllowed())
 		{
 			// TRANSLATORS: A debug output string (user-visible if debug mode is enabled)
-			console(_("ID %u - Production Output: %u - BuildPointsRemaining: %u - Resistance: %d / %d"), psStructure->id,
+			console(_("ID %u - Production Output: %u - BuildPointsRemaining: %u - Resistance: %d / %d - Radius %d"), psStructure->id,
 			        getBuildingProductionPoints(psStructure), psStructure->pFunctionality->factory.buildPointsRemaining,
-			        psStructure->resistance, structureResistance(psStructure->pStructureType, psStructure->player));
+			        psStructure->resistance, structureResistance(psStructure->pStructureType, psStructure->player),
+					psStructure->sDisplay.imd->radius / 2);
 		}
 		break;
 	case REF_RESEARCH:

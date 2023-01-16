@@ -1799,8 +1799,9 @@ static void dealWithLMBStructure(STRUCTURE *psStructure, SELECTION_TYPE selectio
 		if (dbgInputManager.debugMappingsAllowed())
 		{
 			// TRANSLATORS: "ref" is an internal unique id of the item (can leave untranslated as a technical term)
-			console(_("(Enemy!) %s, ref: %d, ID: %d Hitpoints: %d/%d"), getID(psStructure->pStructureType), psStructure->pStructureType->ref,
-			        psStructure->id, psStructure->body, psStructure->pStructureType->upgrade[psStructure->player].hitpoints);
+			console(_("(Enemy!) %s, ref: %d, ID: %d Hitpoints: %d/%d Radius %d"), getID(psStructure->pStructureType), psStructure->pStructureType->ref,
+			        psStructure->id, psStructure->body, psStructure->pStructureType->upgrade[psStructure->player].hitpoints,
+					 psStructure->sDisplay.imd->radius / 2);
 		}
 		orderSelectedObjAdd(selectedPlayer, (BASE_OBJECT *)psStructure, ctrlShiftDown());
 		//lasSat structure can select a target - in multiPlayer only

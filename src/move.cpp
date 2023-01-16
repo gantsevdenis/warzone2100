@@ -538,8 +538,9 @@ static bool moveNextTarget(DROID *psDroid)
 
 // Watermelon:fix these magic number...the collision radius should be based on pie imd radius not some static int's...
 // note, tile size is 128
-static int mvPersRad = 16, mvCybRad = 32, mvSmRad = 32, mvMedRad = 64, mvLgRad = 64, mvSuperHeavy = 128;
+// static int mvPersRad = 16, mvCybRad = 32, mvSmRad = 32, mvMedRad = 64, mvLgRad = 64, mvSuperHeavy = 128;
 // static	int mvPersRad = 20, mvCybRad = 30, mvSmRad = 40, mvMedRad = 50, mvLgRad = 60;
+
 
 // Get the radius of a base object for collision
 SDWORD moveObjRadius(const BASE_OBJECT *psObj)
@@ -551,11 +552,11 @@ SDWORD moveObjRadius(const BASE_OBJECT *psObj)
 			const DROID *psDroid = (const DROID *)psObj;
 			if (psDroid->droidType == DROID_PERSON)
 			{
-				return mvPersRad;
+				return PersonRadius * FF_UNIT;
 			}
 			else if (cyborgDroid(psDroid))
 			{
-				return mvCybRad;
+				return CyborgRadius * FF_UNIT;
 			}
 			else
 			{
@@ -563,16 +564,16 @@ SDWORD moveObjRadius(const BASE_OBJECT *psObj)
 				switch (psBdyStats->size)
 				{
 				case SIZE_LIGHT:
-					return mvSmRad;
+					return SmallRadius * FF_UNIT;
 
 				case SIZE_MEDIUM:
-					return mvMedRad;
+					return MediumRadius * FF_UNIT;
 
 				case SIZE_HEAVY:
-					return mvLgRad;
+					return LargeRadius * FF_UNIT;
 
 				case SIZE_SUPER_HEAVY:
-					return mvSuperHeavy;
+					return ExtraLargeRadius * FF_UNIT;
 
 				default:
 					return psDroid->sDisplay.imd->radius;
@@ -2472,7 +2473,8 @@ void moveUpdateDroid(DROID *psDroid)
 		// fallthrough
 	case MOVEPOINTTOPOINT:
 	case MOVEPAUSE:
-		if(tryGetFlowfieldDirection(psDroid->sMove.flowfieldId, map_coord(psDroid->pos.x), map_coord(psDroid->pos.y), flowDir))
+		if(tryGetFlowfieldDirection(psPropStats->propulsionType, map_coord(psDroid->pos.x), map_coord(psDroid->pos.y), 
+			moveObjRadius(psDroid), flowDir))
 		{
 			moveDir = directionToUint16(flowDir);
 			if (flowDir == Directions::DIR_NONE)
@@ -2549,7 +2551,7 @@ void moveUpdateDroid(DROID *psDroid)
 
 		triggerEventDroidMoved(psDroid, oldx, oldy);
 	}
-	
+
 	// See if it's got blocked
 	if ((psPropStats->propulsionType != PROPULSION_TYPE_LIFT) && moveBlocked(psDroid))
 	{
