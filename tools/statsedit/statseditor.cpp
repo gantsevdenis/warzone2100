@@ -4,6 +4,7 @@
 #include "statseditor.h"
 #include "ui_statseditor.h"
 
+#define DEG(degrees) ((degrees) * 8192 / 45)
 static void loadBodies(QStandardItemModel &model, QString path)
 {
 	QSettings ini(path, QSettings::IniFormat);
@@ -64,8 +65,10 @@ static void loadPropulsions(QStandardItemModel &model, QString path)
 		model.setData(model.index(i, 7, QModelIndex()), ini.value("speed").toString(), Qt::DisplayRole);
 		model.setData(model.index(i, 8, QModelIndex()), ini.value("designable", false).toString(), Qt::DisplayRole);
 		model.setData(model.index(i, 9, QModelIndex()), ini.value("skidDeceleration", 600).toString(), Qt::DisplayRole);
-		model.setData(model.index(i, 10, QModelIndex()), ini.value("spinSpeed", 8192/45*3/4).toString(), Qt::DisplayRole);
-		model.setData(model.index(i, 11, QModelIndex()), ini.value("turnSpeed", 8192/45/3).toString(), Qt::DisplayRole);
+		// default is ~136.53
+		model.setData(model.index(i, 10, QModelIndex()), 10 ini.value("spinSpeed", DEG(3/4)).toString(), Qt::DisplayRole);
+		// default is ~65.02
+		model.setData(model.index(i, 11, QModelIndex()), ini.value("turnSpeed", DEG(1/3)).toString(), Qt::DisplayRole);
 		model.setData(model.index(i, 12, QModelIndex()), ini.value("Acceleration", 250).toString(), Qt::DisplayRole);
 		model.setData(model.index(i, 13, QModelIndex()), ini.value("Deceleration", 800).toString(), Qt::DisplayRole);
 		model.setData(model.index(i, 14, QModelIndex()), ini.value("spinAngle", 180).toString(), Qt::DisplayRole);
