@@ -1504,7 +1504,6 @@ STRUCTURE *buildStructureDir(STRUCTURE_STATS *pStructureType, UDWORD x, UDWORD y
 				// We now know the previous loop didn't return early, so it is safe to save references to psBuilding now.
 				MAPTILE *psTile = mapTile(tileX, tileY);
 				psTile->psObject = psBuilding;
-				markTileAsImpassable (tileX, tileY, PROPULSION_TYPE_WHEELED);
 				if (psBuilding->player == 0)
 				{
 			//		debug (LOG_FLOWFIELD, "marked tile as impassable %i %i", tileX, tileY);
@@ -1828,7 +1827,7 @@ STRUCTURE *buildStructureDir(STRUCTURE_STATS *pStructureType, UDWORD x, UDWORD y
 
 	/* why is this necessary - it makes tiles under the structure visible */
 	setUnderTilesVis(psBuilding, player);
-
+	cbStructureBuilt(psBuilding);
 	psBuilding->prevTime = gameTime - deltaGameTime;  // Structure hasn't been updated this tick, yet.
 	psBuilding->time = psBuilding->prevTime - 1;      // -1, so the times are different, even before updating.
 

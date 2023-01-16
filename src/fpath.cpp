@@ -451,13 +451,10 @@ FPATH_RETVAL fpathDroidRoute(DROID *psDroid, SDWORD tX, SDWORD tY, FPATH_MOVETYP
 	}
 	
 	if (isFlowfieldEnabled()) {
-		unsigned int flowfieldId;
-
-		if(tryGetFlowfieldForTarget(tX, tY, psPropStats->propulsionType, flowfieldId))
+		if(tryGetFlowfieldForTarget(tX, tY, psPropStats->propulsionType))
 		{
 			psDroid->sMove.pathIndex = 0;
 			psDroid->sMove.Status = MOVENAVIGATE;
-			psDroid->sMove.flowfieldId = flowfieldId;
 			psDroid->sMove.asPath = { { tX, tY } };
 			return FPR_OK;
 		} else {

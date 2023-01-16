@@ -2473,8 +2473,7 @@ void moveUpdateDroid(DROID *psDroid)
 		// fallthrough
 	case MOVEPOINTTOPOINT:
 	case MOVEPAUSE:
-		if(tryGetFlowfieldDirection(psPropStats->propulsionType, map_coord(psDroid->pos.x), map_coord(psDroid->pos.y), 
-			moveObjRadius(psDroid), flowDir))
+		if(tryGetFlowfieldDirection(psPropStats->propulsionType, psDroid->pos, moveObjRadius(psDroid), flowDir))
 		{
 			moveDir = directionToUint16(flowDir);
 			if (flowDir == Directions::DIR_NONE)

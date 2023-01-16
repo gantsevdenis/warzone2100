@@ -107,7 +107,7 @@ template<> struct TwiceWidth<uint16_t> { using type=uint32_t; };
 static inline uint16_t world_to_cell(uint16_t world, uint16_t &cell)
 {
 	cell = world / FF_UNIT;
-	return world % FF_UNIT
+	return world % FF_UNIT;
 }
 
 static inline void world_to_cell(uint16_t worldx, uint16_t worldy, uint16_t &cellx, uint16_t &celly)
@@ -118,8 +118,8 @@ static inline void world_to_cell(uint16_t worldx, uint16_t worldy, uint16_t &cel
 
 static inline void tile_to_cell(uint8_t mapx, uint8_t mapy, uint16_t &cellx, uint16_t &celly)
 {
-	cellx = mapx * FF_UNIT;
-	celly = mapy * FF_UNIT;
+	cellx = mapx * FF_TILE_SIZE / FF_UNIT;
+	celly = mapy * FF_TILE_SIZE / FF_UNIT;
 }
 
 static inline uint32_t world_2Dto1D(uint16_t worldx, uint16_t worldy)
@@ -264,7 +264,7 @@ void calculateFlowfieldAsync(uint16_t worldx, uint16_t worldy, PROPULSION_TYPE p
 static int ffpathThreadFunc(void *)
 {
 	wzMutexLock(ffpathMutex);
-	const uint32_t goal = world_2Dto1D(request.goalX, request.goalY);
+	
 	while (!ffpathQuit)
 	{
 		if (flowfieldRequests.empty())
@@ -279,12 +279,10 @@ static int ffpathThreadFunc(void *)
 		{
 			// Copy the first request from the queue.
 			auto request = std::move(flowfieldRequests.front());
+			const uint32_t goal = world_2Dto1D(request.goalX, request.goalY);
 			flowfieldRequests.pop_front();
-
 			flowfieldCurrentlyActiveRequests.insert(
-				std::make_pair(
-					std::make_pair(goal, request.propulsion),
-					true));
+				std::make_pair(std::make_pair(goal, request.propulsion), true));
 			wzMutexUnlock(ffpathMutex);
 			// debug (LOG_FLOWFIELD, "started processing flowfield request %i", request.goal);
 			auto start = std::chrono::high_resolution_clock::now();
@@ -348,7 +346,7 @@ struct CostField
 	void world_setCost(uint16_t worldx, uint16_t worldy, uint16_t value)
 	{
 		uint16_t cellx, celly;
-		world_to_cell(worldx, worldy, &cellx, celly);
+		world_to_cell(worldx, worldy, cellx, celly);
 		this->cost.at(world_2Dto1D(worldx, worldy)) = value;
 	}
 
@@ -356,19 +354,20 @@ struct CostField
 	{
 		uint16_t cell_startx, cell_starty;
 		world_to_cell(pos.x, pos.y, cell_startx, cell_starty);
-		uint16_t radius_cells;
-		uint16_t radius_cells_mod = world_to_cell(radius, radius_cells);
+		uint16_t cellradius;
+		uint16_t radius_cells_mod = world_to_cell(radius, cellradius);
 		// add 1 if spills to the next cell
-		radius_cells += (uint16_t) (radius_cells_mod > 0);
-		for(int dx = 0; dx < radius_cells; dx++)
+		cellradius += (uint16_t) (radius_cells_mod > 0);
+		for(int dx = 0; dx < cellradius; dx++)
 		{
-			for(int dy = 0; dy < radius_cells; dy)
+			for(int dy = 0; dy < cellradius; dy++)
 			{
+				// FIXME: needs a bound check!
 				uint16_t cellx = cell_startx + dx;
 				uint16_t celly = cell_starty + dy;
 				uint16_t cellIdx = cells_2Dto1D(cellx, celly);
 				// NOTE: maybe use another value for droids, because they actually can move, unlike a rock
-				integrationField.at(cellIdx) = COST_NOT_PASSABLE;
+				cost.at(cellIdx) = COST_NOT_PASSABLE;
 			}
 		}
 	}
@@ -380,7 +379,7 @@ struct CostField
 	uint16_t world_getCost(uint16_t worldx, uint16_t worldy) const
 	{
 		uint16_t cellx, celly;
-		world_to_cell(worldx, worldy, &cellx, celly);
+		world_to_cell(worldx, worldy, cellx, celly);
 		return this->cost.at(cells_2Dto1D(cellx, celly));
 	}
 
@@ -397,13 +396,15 @@ struct CostField
 	void tile_setCost(uint8_t mapx, uint8_t mapy, uint16_t value)
 	{
 		uint16_t cellx, celly;
-		tile_to_cell(mapx, mapy, &cellx, celly);
-		// mark everything 4 cells accross
+		tile_to_cell(mapx, mapy, cellx, celly);
+		// mark everything "1 tile = 4 cells" accross
 		for (int dx = 0; dx < (FF_TILE_SIZE / FF_UNIT); dx++)
 		{
 			for (int dy = 0; dy < (FF_TILE_SIZE / FF_UNIT); dy++)
 			{
-				this->cost.at(cell_2Dto1D(cellx + dx, celly + dy)) = value;
+				// NOTE: assume that, because mapx and mapy are within bounds [0, 255]
+				//       means no need to check bounds of cellx + dx, celly + dy
+				this->cost.at(cells_2Dto1D(cellx + dx, celly + dy)) = value;
 			}
 		}
 		
@@ -420,7 +421,7 @@ struct CostField
 		// FIXME: not sure what semantics we need here, or remove if not needed
 		// most likely, return IMPASSABLE when at least one of the underlying cells
 		// is IMPASSABLE
-		tile_to_cell(mapx, mapy, &cellx, celly);
+		tile_to_cell(mapx, mapy, cellx, celly);
 		return this->cost.at(cells_2Dto1D(cellx, celly));
 	}
 
@@ -437,17 +438,6 @@ std::array<CostField*, 4> costFields
 	new CostField(), // PROPULSION_TYPE_PROPELLOR
 	new CostField(), // PROPULSION_TYPE_HOVER
 	new CostField(), // PROPULSION_TYPE_LIFT
-};
-
-using CellIdxToFlowfieldPtr = std::map<uint32_t, Flowfield*>;
-
-/// Flow field results. Key: Cells Array index.
-std::array<CellIdxToFlowfieldPtr, 4> flowfieldResults 
-{
-	CellIdxToFlowfieldPtr(new CellIdxToFlowfieldPtr()), // PROPULSION_TYPE_WHEELED
-	CellIdxToFlowfieldPtr(new CellIdxToFlowfieldPtr()), // PROPULSION_TYPE_PROPELLOR
-	CellIdxToFlowfieldPtr(new CellIdxToFlowfieldPtr()), // PROPULSION_TYPE_HOVER
-	CellIdxToFlowfieldPtr(new CellIdxToFlowfieldPtr())  // PROPULSION_TYPE_LIFT
 };
 
 uint8_t minIndex (uint16_t a[], size_t a_len)
@@ -511,6 +501,14 @@ const std::array<Directions, 3> quad4_vecs = {
 	Directions::DIR_4
 };
 
+// works for anything, as long as all arguments are using same units
+inline bool isInsideGoal (uint16_t goalX, uint16_t goalY, uint16_t cellx, 
+                          uint16_t celly, uint16_t extentX, uint16_t extentY)
+{
+	return  cellx < goalX + extentX && cellx >= goalX &&
+            celly < goalY + extentY && celly >= goalY;
+}
+
 /** Contains direction vectors for each map tile
  * we have a 1024*1024 sized array here,
  * because each Map can be up to 256 tiles, and each tile is 128 worldunits size.
@@ -554,18 +552,55 @@ public:
 		return impassable.at(cells_2Dto1D(cellx, celly));
 	}
 
-	Directions cell_getDir (uint16_t cellx, uint16_t celly) const
+	Directions cell_getDir (uint16_t cellx, uint16_t celly, uint8_t radius) const
 	{
-		return dirs.at(cells_2Dto1D(cellx, celly));
+		if (radius == FF_UNIT)
+		{
+			return dirs.at(cells_2Dto1D(cellx, celly));
+		}
+		else
+		{
+			// NOTE: when the radius is larger than FF_UNITS, we need to decide where to go
+			// proposal: just count the most represented direction, and go there
+			// TODO: fix duplicated iteration code, like in CostField.world_setCost
+			uint16_t cellradius;
+			uint16_t radius_cells_mod = world_to_cell(radius, cellradius);
+			static_assert((int) Directions::DIR_0 == 1, "invariant broken");
+			int neighb_directions[9] = {0};
+			// add 1 if spills to the next cell
+			cellradius += (uint16_t) (radius_cells_mod > 0);
+			for(int dx = 0; dx < cellradius; dx++)
+			{
+				for(int dy = 0; dy < cellradius; dy++)
+				{
+					// FIXME: needs a bound check!
+					uint16_t cellx_ = cellx + dx;
+					uint16_t celly_ = celly + dy;
+					uint16_t cellIdx = cells_2Dto1D(cellx_, celly_);
+					const Directions d = dirs.at(cellIdx);
+					neighb_directions[(int) d]++;
+				}
+			}
+			int min_sofar = 0xFFFF;
+			int min_idx = 0xFFFF;
+			for (int i = 0; i < 9; i++)
+			{
+				if (neighb_directions[i] < min_sofar)
+				{
+					min_sofar = neighb_directions[i];
+					min_idx = i;
+				}
+			}
+			return static_cast<Directions>(min_idx);
+		}
+		
 	}
 
 	Directions world_getDir (uint16_t worldx, uint16_t worldy, uint8_t radius) const
 	{
 		uint16_t cellx, celly;
 		world_to_cell(worldx, worldy, cellx, celly);
-		// when the radius is larger than FF_UNITS, we need to decide where to go
-		// proposal: just count the most represented direction, and go there
-		return dirs.at(cells_2Dto1D(cellx, celly));
+		return cell_getDir(cellx, celly, radius);
 	}
 
 	Vector2f world_getVector(uint16_t worldx, uint16_t worldy) const
@@ -592,7 +627,7 @@ public:
 			// we don't care about DIR_NONE
 			for (int neighb = (int) Directions::DIR_0; neighb < DIR_TO_VEC_SIZE; neighb++)
 			{
-				const auto neighb_cellIdx = cellx + neighbors[neighb][0], celly + neighbors[neighb][1];
+				const auto neighb_cellIdx = cells_2Dto1D (cellx + neighbors[neighb][0], celly + neighbors[neighb][1]);
 				// substract 1, because Directions::DIR_0 is 1
 				costs[neighb - 1] = integrationField.at(neighb_cellIdx);
 			}
@@ -619,12 +654,14 @@ private:
 					auto radius = moveObjRadius(psCurr);
 					uint16_t cell_startx, cell_starty;
 					world_to_cell(psCurr->pos.x, psCurr->pos.y, cell_startx, cell_starty);
-					uint16_t radius_cells = world_to_cell(radius);
+					uint16_t radius_cells;
+					world_to_cell(radius, radius_cells);
 					radius_cells += (uint16_t) (radius % FF_UNIT > 0);
 					for(int dx = 0; dx < radius_cells; dx++)
 					{
-						for(int dy = 0; dy < radius_cells; dy)
+						for(int dy = 0; dy < radius_cells; dy++)
 						{
+							// FIXME: needs a bound check!
 							uint16_t cellx = cell_startx + dx;
 							uint16_t celly = cell_starty + dy;
 							uint16_t cellIdx = cells_2Dto1D(cellx, celly);
@@ -643,6 +680,7 @@ private:
 		{
 			for (int dy = 0; dy < goalYExtent; dy++)
 			{
+				// FIXME: needs a bound check!
 				const auto index = cells_2Dto1D(goalX + dx, goalY + dy);
 				openSet.push(Node { predecessorCost, index });
 			}
@@ -655,7 +693,7 @@ private:
 		return integrationField;
 	}
 
-	void integrateNode(const std::priority_queue<Node> &openSet, std::vector<uint16_t> &integrationField)
+	void integrateNode(std::priority_queue<Node> &openSet, std::vector<uint16_t> &integrationField)
 	{
 		const Node& node = openSet.top();
 		auto cost = costFields[prop]->cell_getCost(node.index);
@@ -688,31 +726,41 @@ private:
 	}
 };
 
+/// Flow field results. Key: Cells Array index.
+static std::array< std::map<uint32_t, Flowfield* >, 4> flowfieldResults 
+{
+	std::map<uint32_t, Flowfield* >(), // PROPULSION_TYPE_WHEELED
+	std::map<uint32_t, Flowfield* >(), // PROPULSION_TYPE_PROPELLOR
+	std::map<uint32_t, Flowfield* >(), // PROPULSION_TYPE_HOVER
+	std::map<uint32_t, Flowfield* >()  // PROPULSION_TYPE_LIFT
+};
+
 std::map<unsigned int, Flowfield*> flowfieldById;
 
 bool tryGetFlowfieldForTarget(uint16_t worldx,
                               uint16_t worldy,
-							  PROPULSION_TYPE propulsion,
-							  uint32_t &id)
+							  PROPULSION_TYPE propulsion)
 {
 	// caches needs to be updated each time there a structure built / destroyed
 	uint16_t cellx, celly;
 	world_to_cell(worldx, worldy, cellx, celly);
 	uint32_t goal = cells_2Dto1D(cellx, celly);
-	const auto flowfieldCache = flowfieldResults[propulsionIdx2[propulsion]];
+	const auto results = flowfieldResults[propulsionIdx2[propulsion]];
 	// this check is already done in fpath.cpp.
 	// TODO: we should perhaps refresh the flowfield instead of just bailing here.
-	if (!flowfieldCache->count(goal)) return false;
-	const auto flowfield = flowfieldCache->at(goal);
-	id = flowfield->id;
-	return true;
+	return results.count(goal) > 0;
 }
 
 /** Position is world coordinates. Radius is world units too */
-bool tryGetFlowfieldDirection(uint32_t id, const Position &pos, uint8_t radius, Directions &out)
+bool tryGetFlowfieldDirection(PROPULSION_TYPE prop, const Position &pos, uint8_t radius, Directions &out)
 {
-	if(!flowfieldById.count(id)) return false;
-	auto flowfield = flowfieldById[id];
+	const auto results = flowfieldResults[propulsionIdx2[prop]];
+	uint16_t cellx, celly;
+	uint32_t cell_goal;
+	world_to_cell(pos.x, pos.y, cellx, celly);
+	cell_goal = cells_2Dto1D(cellx, celly);
+	if(!flowfieldById.count(cell_goal)) return false;
+	auto flowfield = flowfieldById[cell_goal];
 	out = flowfield->world_getDir(pos.x, pos.y, radius);
 	return true;
 }
@@ -725,34 +773,25 @@ bool tryGetFlowfieldDirection(uint32_t id, const Position &pos, uint8_t radius, 
 // }
 
 
-// works for anything, as long as all arguments are using same units
-inline bool isInsideGoal (uint16_t goalX, uint16_t goalY, uint16_t cellx, uint16_t celly, uint16_t extentX, uint16_t extentY)
-{
-	return  cellx < goalX + extentX && cellx >= goalX &&
-            celly < goalY + extentY && celly >= goalY;
-}
-
 void processFlowfield(FLOWFIELDREQUEST request)
 {
 	// NOTE for us noobs!!!! This function is executed on its own thread!!!!
 	static_assert(PROPULSION_TYPE_NUM == 7, "new propulsions need to handled!!");
 	// const auto costField = costFields[propulsionIdx2[request.propulsion]];
-	const auto flowfieldCache = flowfieldResults[propulsionIdx2[request.propulsion]];
-	const auto goal = world_to_cell(request.goalX, request.goalY);
+	auto results = flowfieldResults[propulsionIdx2[request.propulsion]];
+	uint16_t cell_goalX, cell_goalY, cell_extentX, cell_extentY;
+	world_to_cell(request.goalX, request.goalY, cell_goalX, cell_goalY);
+	tile_to_cell(DEFAULT_EXTENT_X, DEFAULT_EXTENT_Y, cell_extentX, cell_extentY);
+	const uint32_t cell_goal = cells_2Dto1D (cell_goalX, cell_goalY);
  	// this check is already done in fpath.cpp.
 	// TODO: we should perhaps refresh the flowfield instead of just bailing here.
 	uint32_t ffid;
-	if (flowfieldCache->count(goal)) return;
+	if (results.count(cell_goal)) return;
 	{
 		std::lock_guard<std::mutex> lock(flowfieldMutex);
 		ffid = flowfieldIdInc++;
 	}
-	// must convert between World <-> Cells units
-	const auto cell_goalX = request.goalX / FF_UNIT;
-	const auto cell_goalY = request.goalY / FF_UNIT;
-	const auto cell_extentX = DEFAULT_EXTENT_X * FF_TILE_SIZE / FF_UNIT;
-	const auto cell_extentY = DEFAULT_EXTENT_Y * FF_TILE_SIZE / FF_UNIT;
-	auto flowfield = new Flowfield(ffid, cell_goalX, cell_goalY, request.propulsion, cell_extentX, cell_extentY);
+	Flowfield* flowfield = new Flowfield(ffid, cell_goalX, cell_goalY, request.propulsion, cell_extentX, cell_extentY);
 	flowfieldById.insert(std::make_pair(flowfield->id, flowfield));
 	debug (LOG_FLOWFIELD, "calculating flowfield %i, at x=%i (cellx=%i len %i) y=%i(celly=%i len %i)", flowfield->id, 
 		request.goalX, cell_goalX, flowfield->goalXExtent,
@@ -761,7 +800,8 @@ void processFlowfield(FLOWFIELDREQUEST request)
 	{
 		std::lock_guard<std::mutex> lock(flowfieldMutex);
 		// store the result, this will be checked by fpath.cpp
-		flowfieldCache->insert(std::make_pair(goal, std::unique_ptr<Flowfield>(flowfield)));
+		// NOTE: we are storing Goal in cell units
+		results.insert(std::make_pair(cell_goal, flowfield));
 	}
 }
 
@@ -815,6 +855,7 @@ void cbStructureBuilt(const STRUCTURE *structure)
 		{
 			for (int dy = 0; dy < b.size.y; ++dy)
 			{
+				// assume structures have correct bounds, no need for bound check, mapx + dx,  mapy + dy
 				costFields[propulsionToIndexUnique.at(PROPULSION_TYPE_WHEELED)]->tile_setImpassable(mapx + dx, mapy + dy);
 			}
 		}
@@ -842,6 +883,7 @@ void cbStructureDestroyed(const STRUCTURE *structure)
 		{
 			for (int dy = 0; dy < b.size.y; ++dy)
 			{
+				// assume structures have correct bounds, no need for bound check, mapx + dx,  mapy + dy
 				costFields[propulsionToIndexUnique.at(PROPULSION_TYPE_HOVER)]->tile_setCost(mapx + dx, mapy + dy, COST_MIN);
 				costFields[propulsionToIndexUnique.at(PROPULSION_TYPE_WHEELED)]->tile_setCost(mapx + dx, mapy + dy, COST_MIN);
 			}
@@ -932,9 +974,9 @@ void debugDrawFlowfield(const DROID *psDroid, const glm::mat4 &mvp)
 {
 	const auto playerXTile = map_coord(playerPos.p.x);
 	const auto playerZTile = map_coord(playerPos.p.z);
-	Flowfield* flowfield = nullptr;
-	flowfield = flowfieldById.at(psDroid->sMove.flowfieldId);
-	if (!flowfield) return;
+	//Flowfield* flowfield = nullptr;
+	PROPULSION_STATS       *psPropStats = asPropulsionStats + psDroid->asBits[COMP_PROPULSION];
+	if (!tryGetFlowfieldForTarget(psDroid->pos.x, psDroid->pos.y, psPropStats->propulsionType)) return;
 	
 	// const auto& costField = costFields[propulsionIdx2[PROPULSION_TYPE_WHEELED]];
 	for (auto deltaX = -6; deltaX <= 6; deltaX++)
@@ -1170,7 +1212,9 @@ void debugDrawFlowfields(const glm::mat4 &mvp)
 	for (DROID *psDroid = apsDroidLists[selectedPlayer]; psDroid; psDroid = psDroid->psNext)
 	{
 		if (!psDroid->selected) continue;
-		if (isFlowfieldEnabled() && psDroid->sMove.flowfieldId == 0) continue;
+		PROPULSION_STATS       *psPropStats = asPropulsionStats + psDroid->asBits[COMP_PROPULSION];
+		if (isFlowfieldEnabled() && 
+			!tryGetFlowfieldForTarget(psDroid->pos.x, psDroid->pos.y, psPropStats->propulsionType)) continue;
 		lastSelected = psDroid;
 		break;
 	}
