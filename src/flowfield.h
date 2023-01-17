@@ -104,7 +104,7 @@ void cbFeatureDestroyed(const FEATURE *feature);
 /// Returns true and populates flowfieldId if a flowfield exists for the specified target.
 bool tryGetFlowfieldForTarget(uint16_t worldx, uint16_t worldy, PROPULSION_TYPE propulsion);
 /// Starts to generate a flowfield for the specified target.
-void calculateFlowfieldAsync(uint16_t worldx, uint16_t worldy, PROPULSION_TYPE propulsion);
+void calculateFlowfieldAsync(uint16_t worldx, uint16_t worldy, PROPULSION_TYPE propulsion, int player);
 /// Returns true and populates vector if a directional vector exists for the specified flowfield and target position.
 // bool tryGetFlowfieldVector(unsigned int flowfieldId, uint8_t x, uint8_t y, Vector2f& vector);
 

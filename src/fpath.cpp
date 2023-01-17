@@ -458,7 +458,7 @@ FPATH_RETVAL fpathDroidRoute(DROID *psDroid, SDWORD tX, SDWORD tY, FPATH_MOVETYP
 			psDroid->sMove.asPath = { { tX, tY } };
 			return FPR_OK;
 		} else {
-			calculateFlowfieldAsync(tX, tY, psPropStats->propulsionType);
+			calculateFlowfieldAsync(tX, tY, psPropStats->propulsionType, psDroid->player);
 			return FPR_WAIT;
 		}
 	}
