@@ -776,11 +776,12 @@ bool tryGetFlowfieldForTarget(uint16_t worldx,
 }
 
 /** Position is world coordinates. Radius is world units too */
-bool tryGetFlowfieldDirection(PROPULSION_TYPE prop, const Vector2i &dest, uint8_t radius, Directions &out)
+bool tryGetFlowfieldDirection(PROPULSION_TYPE prop, const Position &pos, const Vector2i &dest, uint8_t radius, Directions &out)
 {
 	const std::unordered_map<uint32_t, Flowfield* > *results = &flowfieldResults[propulsionIdx2[prop]];
 	uint16_t cellx, celly;
 	uint32_t cell_goal;
+	//world_to_cell(pos.x, pos.y, cell_posx, cell_posy);
 	world_to_cell(dest.x, dest.y, cellx, celly);
 	cell_goal = cells_2Dto1D(cellx, celly);
 	if (!results->count(cell_goal))
@@ -788,7 +789,8 @@ bool tryGetFlowfieldDirection(PROPULSION_TYPE prop, const Vector2i &dest, uint8_
 		// debug (LOG_FLOWFIELD, "not yet in results? %i, cellx=%i celly=%i", cell_goal, cellx, celly);
 		return false;
 	}
-	out = results->at(cell_goal)->world_getDir(dest.x, dest.y, radius);
+	// get direction at current droid position
+	out = results->at(cell_goal)->world_getDir(pos.x, pos.y, radius);
 	debug (LOG_FLOWFIELD, "found a flowfield for %i, DIR_%i", cell_goal, (int) out - (int) Directions::DIR_0);
 	return true;
 }
@@ -797,7 +799,6 @@ void processFlowfield(FLOWFIELDREQUEST request)
 {
 	// NOTE for us noobs!!!! This function is executed on its own thread!!!!
 	static_assert(PROPULSION_TYPE_NUM == 7, "new propulsions need to handled!!");
-	// const auto costField = costFields[propulsionIdx2[request.propulsion]];
 	std::unordered_map<uint32_t, Flowfield* > *results = &flowfieldResults[propulsionIdx2[request.propulsion]];
 	uint16_t cell_extentX, cell_extentY;
 	tile_to_cell(DEFAULT_EXTENT_X, DEFAULT_EXTENT_Y, cell_extentX, cell_extentY);
@@ -985,6 +986,8 @@ void destroyflowfieldResults()
 	// 	flowfieldResults[pair.second]->clear();
 	// }
 }
+
+// draw a square where half of sidelen goes in each direction
 static void drawSquare (const glm::mat4 &mvp, int sidelen, int startPointX, int startPointY, int height, PIELIGHT color)
 {
 	iV_PolyLine({
@@ -1006,11 +1009,11 @@ static void renderDebugText (const char *txt, int vert_idx)
 void debugDrawFlowfield(const DROID *psDroid, const glm::mat4 &mvp) 
 {
 	const auto playerXTile = map_coord(playerPos.p.x);
-	const auto playerZTile = map_coord(playerPos.p.z);
+	const auto playerYTile = map_coord(playerPos.p.z); // on 2D Map, this is actually Y
 	//Flowfield* flowfield = nullptr;
-	PROPULSION_STATS       *psPropStats = asPropulsionStats + psDroid->asBits[COMP_PROPULSION];
-	if (!tryGetFlowfieldForTarget(psDroid->pos.x, psDroid->pos.y, psPropStats->propulsionType)) return;
-	
+//	PROPULSION_STATS       *psPropStats = asPropulsionStats + psDroid->asBits[COMP_PROPULSION];
+	// if (!tryGetFlowfieldForTarget(psDroid->sMove.destination.x, psDroid->sMove.destination.y, psPropStats->propulsionType)) return;
+
 	// const auto& costField = costFields[propulsionIdx2[PROPULSION_TYPE_WHEELED]];
 	for (auto deltaX = -6; deltaX <= 6; deltaX++)
 	{
@@ -1018,46 +1021,81 @@ void debugDrawFlowfield(const DROID *psDroid, const glm::mat4 &mvp)
 
 		if (x < 0) continue;
 		
-		for (auto deltaZ = -6; deltaZ <= 6; deltaZ++)
+		for (auto deltaY = -6; deltaY <= 6; deltaY++)
 		{
-			const auto z = playerZTile + deltaZ;
+			const auto y = playerYTile + deltaY;
 
-			if(z < 0) continue;
+			if(y < 0) continue;
 
-			const int XA = world_coord(x);
-			const int XB = world_coord(x + 1);
-			const int ZA = world_coord(z);
-			const int ZB = world_coord(z + 1);
-			const int YAA = map_TileHeight(x, z);
-			const int YBA = map_TileHeight(x + 1, z);
-			const int YAB = map_TileHeight(x, z + 1);
-			const int YBB = map_TileHeight(x + 1, z + 1);
+			const int X = world_coord(x);
+			const int Y = world_coord(y);
+			const int height_xy = map_TileHeight(x, y);
+			const int height_x1y = map_TileHeight(x + 1, y);
+			const int X1 = world_coord(x + 1);
+			const int Y1 = world_coord(y + 1);
+			const int height_xy1 = map_TileHeight(x, y + 1);
+			const int height_x1y1 = map_TileHeight(x + 1, y + 1);
 			
-			// int height = map_TileHeight(x, z);
+			// int height = map_TileHeight(x, y);
 
 			// tile
 			iV_PolyLine({
-				{ XA, YAA, -ZA },
-				{ XA, YAB, -ZB },
-				{ XB, YBB, -ZB },
-				{ XB, YBA, -ZA },
-				{ XA, YAA, -ZA },
+				{ X, height_xy, -Y },
+				{ X, height_xy1, -Y1 },
+				{ X1, height_x1y1, -Y1 },
 			}, mvp, WZCOL_GREY);
 
+			std::vector<Vector3i> pts {
+				// 3 vertical lines ...
+				{ (X + FF_UNIT), height_xy, -Y },
+				{ (X + FF_UNIT), height_xy1, -(Y + FF_TILE_SIZE) },
+
+				{ (X + FF_UNIT * 2), height_xy, -Y },
+				{ (X + FF_UNIT * 2), height_xy1, -(Y + FF_TILE_SIZE) },
+				
+				{ (X + FF_UNIT * 3), height_xy, -Y },
+				{ (X + FF_UNIT * 3), height_xy1, -(Y + FF_TILE_SIZE) },
+
+				// 3 horizontal lines
+				{ X, height_xy, -(Y + FF_UNIT)},
+				{ X + FF_TILE_SIZE, height_x1y, -(Y + FF_UNIT)},
+
+				{ X, height_xy, -(Y + FF_UNIT * 2)},
+				{ X + FF_TILE_SIZE, height_x1y, -(Y + FF_UNIT * 2)},
+
+				{ X, height_xy, -(Y + FF_UNIT * 3)},
+				{ X + FF_TILE_SIZE, height_x1y, -(Y + FF_UNIT * 3)},
+			};
+			std::vector<glm::ivec4> grid2D;
+			for (int i = 0; i < pts.size(); i += 2)
+			{
+				Vector2i _a, _b;
+				pie_RotateProjectWithPerspective(&pts[i],     mvp, &_a);
+				pie_RotateProjectWithPerspective(&pts[i + 1], mvp, &_b);
+				grid2D.push_back({_a.x, _a.y, _b.x, _b.y});
+			}
+			static bool dbg = false;
+			if (!dbg)
+			{
+				debug(LOG_FLOWFIELD, "grid2d size: %zu, ", grid2D.size());
+				dbg = true;
+			}
+			iV_Lines(grid2D, WZCOL_YELLOW);
+			// drawSquare(mvp, 32, X, Y, height_xy, WZCOL_YELLOW);
 			// cost
-			// const Vector3i a = { (XA + 20), height, -(ZA + 20) };
+			// const Vector3i a = { (X + 20), height, -(Y + 20) };
 			// Vector2i b;
 			// pie_RotateProjectWithPerspective(&a, mvp, &b);
-			// auto cost = costField->getCost(x, z);
-			// if (!flowfield->isImpassable(x, z))
+			// auto cost = costField->getCost(x, y);
+			// if (!flowfield->isImpassable(x, y))
 			// {
 			// 	WzText costText(WzString::fromUtf8(std::to_string(cost)), font_small);
 			// 	costText.render(b.x, b.y, WZCOL_TEXT_BRIGHT);
 			// 	// position
-			// 	if(x < 999 && z < 999){
+			// 	if(x < 999 && y < 999){
 			// 		char positionString[7];
-			// 		ssprintf(positionString, "%i,%i", x, z);
-			// 		const Vector3i positionText3dCoords = { (XA + 20), height, -(ZB - 20) };
+			// 		ssprintf(positionString, "%i,%i", x, y);
+			// 		const Vector3i positionText3dCoords = { (X + 20), height, -(Y1 - 20) };
 			// 		Vector2i positionText2dCoords;
 			// 		pie_RotateProjectWithPerspective(&positionText3dCoords, mvp, &positionText2dCoords);
 			// 		WzText positionText(positionString, font_small);
@@ -1076,18 +1114,18 @@ void debugDrawFlowfield(const DROID *psDroid, const glm::mat4 &mvp)
 
 		for (auto deltaZ = -6; deltaZ <= 6; deltaZ++)
 		{
-			const int z = playerZTile + deltaZ;
+			const int z = playerYTile + deltaZ;
 
 			if (z < 0) continue;
 			
 			
-			const float XA = world_coord(x);
-			const float ZA = world_coord(z);
+			const float X = world_coord(x);
+			const float Y = world_coord(z);
 
 			auto vector = flowfield->getVector(x, z);
 			
-			auto startPointX = XA + FF_TILE_SIZE / 2;
-			auto startPointY = ZA + FF_TILE_SIZE / 2;
+			auto startPointX = X; + FF_TILE_SIZE / 2;
+			auto startPointY = Y; + FF_TILE_SIZE / 2;
 
 			auto height = map_TileHeight(x, z) + 10;
 
@@ -1103,7 +1141,7 @@ void debugDrawFlowfield(const DROID *psDroid, const glm::mat4 &mvp)
 			}
 
 			// integration fields
-			const Vector3i integrationFieldText3dCoordinates { (XA + 20), height, -(ZA + 40) };
+			const Vector3i integrationFieldText3dCoordinates { (X + 20), height, -(Y + 40) };
 			Vector2i integrationFieldText2dCoordinates;
 
 			pie_RotateProjectWithPerspective(&integrationFieldText3dCoordinates, mvp, &integrationFieldText2dCoordinates);
@@ -1114,8 +1152,7 @@ void debugDrawFlowfield(const DROID *psDroid, const glm::mat4 &mvp)
 				costText.render(integrationFieldText2dCoordinates.x, integrationFieldText2dCoordinates.y, WZCOL_TEXT_BRIGHT);
 			}
 		}
-	}*/
-
+	}
 	// for (int dx = 0; dx < flowfield->goalXExtent; dx++)
 	// {
 	// 	for (int dy = 0; dy < flowfield->goalYExtent; dy++)
@@ -1130,6 +1167,7 @@ void debugDrawFlowfield(const DROID *psDroid, const glm::mat4 &mvp)
 	// 		drawSquare(mvp, 16, goalX, goalY, height, WZCOL_RED);
 	// 	}
 	// }
+	*/
 }
 
 // even if flowfield disabled, just for sake of information
