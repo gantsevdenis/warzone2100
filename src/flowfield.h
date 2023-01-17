@@ -108,7 +108,7 @@ void calculateFlowfieldAsync(uint16_t worldx, uint16_t worldy, PROPULSION_TYPE p
 /// Returns true and populates vector if a directional vector exists for the specified flowfield and target position.
 // bool tryGetFlowfieldVector(unsigned int flowfieldId, uint8_t x, uint8_t y, Vector2f& vector);
 
-bool tryGetFlowfieldDirection(PROPULSION_TYPE prop, const Position &pos, uint8_t radius, Directions &out);
+bool tryGetFlowfieldDirection(PROPULSION_TYPE prop, const Vector2i &dest, uint8_t radius, Directions &out);
 
 /// is tile (x, y) passable? We don't need propulsion argument, it's implicit for this particular flowfield
 bool flowfieldIsImpassable(unsigned int flowfieldId, uint8_t x, uint8_t y);

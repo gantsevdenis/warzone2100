@@ -251,7 +251,7 @@ static std::array< std::unordered_map<uint32_t, Flowfield* >, 4> flowfieldResult
 	std::unordered_map<uint32_t, Flowfield* >()  // PROPULSION_TYPE_LIFT
 };
 
-static std::unordered_map<unsigned int, Flowfield*> flowfieldById;
+// static std::unordered_map<unsigned int, Flowfield*> flowfieldById;
 
 std::mutex flowfieldMutex;
 
@@ -769,33 +769,29 @@ bool tryGetFlowfieldForTarget(uint16_t worldx,
 	uint16_t cellx, celly;
 	world_to_cell(worldx, worldy, cellx, celly);
 	uint32_t goal = cells_2Dto1D(cellx, celly);
-	const auto results = flowfieldResults[propulsionIdx2[propulsion]];
+	const auto results = &flowfieldResults[propulsionIdx2[propulsion]];
 	// this check is already done in fpath.cpp.
 	// TODO: we should perhaps refresh the flowfield instead of just bailing here.
-	return results.count(goal) > 0;
+	return results->count(goal) > 0;
 }
 
 /** Position is world coordinates. Radius is world units too */
-bool tryGetFlowfieldDirection(PROPULSION_TYPE prop, const Position &pos, uint8_t radius, Directions &out)
+bool tryGetFlowfieldDirection(PROPULSION_TYPE prop, const Vector2i &dest, uint8_t radius, Directions &out)
 {
-	const auto results = flowfieldResults[propulsionIdx2[prop]];
+	const std::unordered_map<uint32_t, Flowfield* > *results = &flowfieldResults[propulsionIdx2[prop]];
 	uint16_t cellx, celly;
 	uint32_t cell_goal;
-	world_to_cell(pos.x, pos.y, cellx, celly);
+	world_to_cell(dest.x, dest.y, cellx, celly);
 	cell_goal = cells_2Dto1D(cellx, celly);
-	if(!flowfieldById.count(cell_goal)) return false;
-	auto flowfield = flowfieldById[cell_goal];
-	out = flowfield->world_getDir(pos.x, pos.y, radius);
+	if (!results->count(cell_goal))
+	{
+		// debug (LOG_FLOWFIELD, "not yet in results? %i, cellx=%i celly=%i", cell_goal, cellx, celly);
+		return false;
+	}
+	out = results->at(cell_goal)->world_getDir(dest.x, dest.y, radius);
+	debug (LOG_FLOWFIELD, "found a flowfield for %i, DIR_%i", cell_goal, (int) out - (int) Directions::DIR_0);
 	return true;
 }
-
-// TODO: remove if not needed
-// bool flowfieldIsImpassable(uint32_t id, uint16_t worldx, uint16_t worldy)
-// {
-// 	auto flowfield = flowfieldById.at(id);
-// 	return flowfield->isImpassable(x, y);
-// }
-
 
 void processFlowfield(FLOWFIELDREQUEST request)
 {
@@ -814,15 +810,14 @@ void processFlowfield(FLOWFIELDREQUEST request)
 		debug (LOG_FLOWFIELD, "already found in results");
 		return;
 	}
-	debug (LOG_FLOWFIELD, "not found %i in results", cell_goal);
 	// FIXME: remove, not needed; also check activeRequests for in-process calculations
 	{
 		std::lock_guard<std::mutex> lock(flowfieldMutex);
 		ffid = flowfieldIdInc++;
 	}
 	Flowfield* flowfield = new Flowfield(ffid, request.cell_goalX, request.cell_goalY, request.propulsion, cell_extentX, cell_extentY);
-	flowfieldById.insert(std::make_pair(flowfield->id, flowfield));
-	debug (LOG_FLOWFIELD, "calculating flowfield %i player=%i, at (cellx=%i len %i) (celly=%i len %i)", flowfield->id, 
+	debug (LOG_FLOWFIELD, "calculating flowfield %i player=%i, at (cellx=%i len %i) (celly=%i len %i)", 
+		flowfield->id, 
 		request.player, request.cell_goalX, flowfield->goalXExtent,
 		request.cell_goalY, flowfield->goalYExtent);
 	flowfield->calculateFlows();
@@ -830,7 +825,8 @@ void processFlowfield(FLOWFIELDREQUEST request)
 		std::lock_guard<std::mutex> lock(flowfieldMutex);
 		// store the result, this will be checked by fpath.cpp
 		// NOTE: we are storing Goal in cell units
-		debug (LOG_FLOWFIELD, "inserting %i into results, results size=%li", cell_goal, results->size());
+		debug (LOG_FLOWFIELD, "inserting %i (cellx=%i celly=%i) into results, results size=%li", cell_goal,
+		request.cell_goalX, request.cell_goalY, results->size());
 		results->insert(std::make_pair(cell_goal, flowfield));
 	}
 }
@@ -1166,14 +1162,18 @@ static void drawUnitDebugInfo (const DROID *psDroid, const glm::mat4 &mvp)
 	renderDebugText(tmpBuff, idx++);
 
 	tmpBuff[64] = {0};
-	ssprintf(tmpBuff, "Target (light blue): %i %i (%i %i)", 
+	ssprintf(tmpBuff, "Target (LB): %i %i (%i %i)", 
 		psDroid->sMove.target.x, psDroid->sMove.target.y, 
 		map_coord(psDroid->sMove.target.x), map_coord(psDroid->sMove.target.y));
 	renderDebugText(tmpBuff, idx++);
 
 	tmpBuff[64] = {0};
-	ssprintf(tmpBuff, "Destination (dark blue): %i %i (%i %i)", psDroid->sMove.destination.x, psDroid->sMove.destination.y, 
-		map_coord(psDroid->sMove.destination.x), map_coord(psDroid->sMove.destination.y));
+	uint16_t cell_destx, cell_desty;
+	world_to_cell(psDroid->sMove.destination.x, psDroid->sMove.destination.y, cell_destx, cell_desty);
+	ssprintf(tmpBuff, "Destination (DB): %i %i (%i %i; %i %i)", 
+		psDroid->sMove.destination.x, psDroid->sMove.destination.y, 
+		map_coord(psDroid->sMove.destination.x), map_coord(psDroid->sMove.destination.y),
+		cell_destx, cell_desty);
 	renderDebugText(tmpBuff, idx++);
 
 	tmpBuff[64] = {0};

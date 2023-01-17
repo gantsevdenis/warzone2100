@@ -2473,7 +2473,7 @@ void moveUpdateDroid(DROID *psDroid)
 		// fallthrough
 	case MOVEPOINTTOPOINT:
 	case MOVEPAUSE:
-		if(tryGetFlowfieldDirection(psPropStats->propulsionType, psDroid->pos, moveObjRadius(psDroid), flowDir))
+		if(tryGetFlowfieldDirection(psPropStats->propulsionType, psDroid->sMove.destination, moveObjRadius(psDroid), flowDir))
 		{
 			moveDir = directionToUint16(flowDir);
 			if (flowDir == Directions::DIR_NONE)
@@ -2491,6 +2491,10 @@ void moveUpdateDroid(DROID *psDroid)
 		}
 		else
 		{
+//			if (psDroid->player == 0)
+//			{
+//				debug (LOG_FLOWFIELD, "FF not found to: %i %i", psDroid->pos.x, psDroid->pos.y);
+//			}
 			// flowfield not found??
 		}		
 		break;
