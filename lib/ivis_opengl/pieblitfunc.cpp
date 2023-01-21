@@ -243,6 +243,28 @@ static void pie_DrawRect(float x0, float y0, float x1, float y1, PIELIGHT colour
 	PSO::get().unbind_vertex_buffers(pie_internal::rectBuffer);
 }
 
+template<typename PSO>
+static void pie_DrawRect_mvp(const glm::mat4 &mvp, float x0, float y0, float x1, float y1, PIELIGHT colour)
+{
+	if (x0 > x1)
+	{
+		std::swap(x0, x1);
+	}
+	if (y0 > y1)
+	{
+		std::swap(y0, y1);
+	}
+	const auto& center = Vector2f(x0, y0);
+	const auto& newmvp = mvp * glm::translate(Vector3f(center, 0.f)) * glm::scale(glm::vec3(x1 - x0, y1 - y0, 1.f));
+
+	PSO::get().bind();
+	PSO::get().bind_constants({ newmvp, glm::vec2{}, glm::vec2{},
+		glm::vec4(colour.vector[0] / 255.f, colour.vector[1] / 255.f, colour.vector[2] / 255.f, colour.vector[3] / 255.f) });
+	PSO::get().bind_vertex_buffers(pie_internal::rectBuffer);
+	PSO::get().draw(4, 0);
+	PSO::get().unbind_vertex_buffers(pie_internal::rectBuffer);
+}
+
 void pie_DrawMultiRect(std::vector<PIERECT_DrawRequest> rects)
 {
 	if (rects.empty()) { return; }
@@ -321,6 +343,11 @@ void pie_BoxFill(int x0, int y0, int x1, int y1, PIELIGHT colour)
 	pie_DrawRect<gfx_api::BoxFillPSO>(x0, y0, x1, y1, colour);
 }
 
+void pie_BoxFill_mvp(const glm::mat4 &mvp, int x0, int y0, int x1, int y1, PIELIGHT colour)
+{
+	pie_DrawRect_mvp<gfx_api::BoxFillPSO>(mvp, x0, y0, x1, y1, colour);
+}
+
 void pie_BoxFillf(float x0, float y0, float x1, float y1, PIELIGHT colour)
 {
 	pie_DrawRect<gfx_api::BoxFillPSO>(x0, y0, x1, y1, colour);
@@ -345,6 +372,10 @@ void pie_UniTransBoxFill(float x0, float y0, float x1, float y1, PIELIGHT light)
 	pie_DrawRect<gfx_api::UniTransBoxPSO>(x0, y0, x1, y1, light);
 }
 
+void pie_UniTransBoxFill_mvp(const glm::mat4 &mvp, float x0, float y0, float x1, float y1, PIELIGHT light)
+{
+	pie_DrawRect_mvp<gfx_api::UniTransBoxPSO>(mvp, x0, y0, x1, y1, light);
+}
 /***************************************************************************/
 
 static bool assertValidImage(IMAGEFILE *imageFile, unsigned id)

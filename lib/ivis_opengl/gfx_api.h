@@ -886,11 +886,23 @@ namespace gfx_api
 	vertex_buffer_description<4, vertex_attribute_description<position, gfx_api::vertex_attribute_type::u8x4_norm, 0>>
 	>, std::tuple<texture_description<0, sampler_type::anisotropic>>, SHADER_TEXRECT>;
 
-	using BoxFillPSO = typename gfx_api::pipeline_state_helper<rasterizer_state<REND_OPAQUE, DEPTH_CMP_ALWAYS_WRT_OFF, 255, polygon_offset::disabled, stencil_mode::stencil_disabled, cull_mode::back>, primitive_type::triangle_strip, index_type::u16,
-	std::tuple<constant_buffer_type<SHADER_RECT>>,
+	using BoxFillPSO = typename gfx_api::pipeline_state_helper<
+	rasterizer_state<REND_OPAQUE, 
+					DEPTH_CMP_ALWAYS_WRT_OFF, 
+					255, 
+					polygon_offset::disabled, 
+					stencil_mode::stencil_disabled, 
+					cull_mode::back>, 
+	primitive_type::triangle_strip, index_type::u16,
 	std::tuple<
-	vertex_buffer_description<4, vertex_attribute_description<position, gfx_api::vertex_attribute_type::u8x4_norm, 0>>
-	>, notexture, SHADER_RECT>;
+		constant_buffer_type<SHADER_RECT>>,
+		std::tuple <vertex_buffer_description<
+					4,
+					vertex_attribute_description<position,
+					gfx_api::vertex_attribute_type::u8x4_norm,
+					0>
+				>
+			>, notexture, SHADER_RECT>;
 	using BoxFillAlphaPSO = typename gfx_api::pipeline_state_helper<rasterizer_state<REND_ALPHA, DEPTH_CMP_ALWAYS_WRT_OFF, 255, polygon_offset::disabled, stencil_mode::stencil_shadow_quad, cull_mode::back>, primitive_type::triangle_strip, index_type::u16,
 	std::tuple<constant_buffer_type<SHADER_RECT>>,
 	std::tuple<

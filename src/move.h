@@ -30,7 +30,7 @@
 // doesn't have have to a power of two: just being a factor of FF_UNIT (flowfield.h) is enough
 static const uint16_t PersonRadius      = 1; // FF_UNITS = 32, Worldunits
 static const uint16_t CyborgRadius      = 1; // FF_UNITS = 32, probably make this bigger like 3 * FF_UNITS
-static const uint16_t SmallRadius       = 1; // FF_UNITS = 32,
+static const uint16_t SmallRadius       = 2; // FF_UNITS = 32,
 static const uint16_t MediumRadius      = 2; // FF_UNITS = 64,
 static const uint16_t LargeRadius       = 2; // FF_UNITS = 64, probably make this bigger, like 5 * FF_UNITS
 static const uint16_t ExtraLargeRadius  = 4; // FF_UNITS = 128,
@@ -70,7 +70,7 @@ void updateDroidOrientation(DROID *psDroid);
 
 /* audio callback used to kill movement sounds */
 bool moveCheckDroidMovingAndVisible(void *psObj);
-
+void ff_update(DROID &droid);
 const char *moveDescription(MOVE_STATUS status);
 
 #endif // __INCLUDED_SRC_MOVE_H__

@@ -65,7 +65,7 @@
 #include "lib/framework/trig.h"
 
 #define DEG(degrees) ((degrees) * 8192 / 45)
-static bool flowfieldEnabled = false;
+static bool flowfieldEnabled = true;
 // yeah...initialization sequence is a spaghetti plate
 static bool costInitialized = false;
 // just for debug, remove for release builds
@@ -119,6 +119,13 @@ static inline void world_to_cell(uint16_t worldx, uint16_t worldy, uint16_t &cel
 	celly = worldy / FF_UNIT;
 }
 
+static inline void cell_to_world(uint16_t cellx, uint16_t celly, uint16_t &worldx, uint16_t &worldy)
+{
+	worldx = cellx * FF_UNIT;
+	worldy = celly * FF_UNIT;
+}
+
+
 static inline void tile_to_cell(uint8_t mapx, uint8_t mapy, uint16_t &cellx, uint16_t &celly)
 {
 	cellx = mapx * FF_TILE_SIZE / FF_UNIT;
@@ -165,6 +172,27 @@ static inline void tiles_1Dto2D(uint16_t idx, uint8_t &mapx, uint8_t &mapy)
 	mapy = idx / TILE_FACTOR;
 }
 
+/// Given a tile, give back subcell indices.
+/// worldx, worldx: top-left point
+// TODO: maybe arrange cells into a contiguous 16-sized array 
+//       to facilitate sequential access
+static void cells_of_tile(uint16_t worldx, uint16_t worldy, std::vector<uint32_t> &out)
+{
+	for (int dx = 0; dx < FF_TILE_SIZE / FF_UNIT; dx++)
+	{
+		for (int dy = 0; dy < FF_TILE_SIZE / FF_UNIT; dy++)
+		{
+			uint16_t cellx, celly;
+			uint32_t cellIdx;
+			world_to_cell (worldx + dx, worldy + dy, cellx, celly);
+			if (!(IS_BETWEEN(cellx, -1, CELL_X_LEN))) continue;
+			if (!(IS_BETWEEN(celly, -1, CELL_Y_LEN))) continue;
+			cellIdx = cells_2Dto1D(cellx, celly);
+			out.push_back(cellIdx);
+		}
+	}
+}
+
 // ignore the first one when iterating!
 // 8 neighbours for each cell
 static const int neighbors[DIR_TO_VEC_SIZE][2] = {
@@ -176,7 +204,7 @@ static const int neighbors[DIR_TO_VEC_SIZE][2] = {
 
 constexpr const uint16_t COST_NOT_PASSABLE = std::numeric_limits<uint16_t>::max();
 constexpr const uint16_t COST_MIN = 1; // default cost 
-
+static bool _drawImpassableTiles = true;
 // Decides how much slopes should be avoided
 constexpr const float SLOPE_COST_BASE = 0.01f;
 // Decides when terrain height delta is considered a slope
@@ -369,7 +397,7 @@ uint32_t flowfieldIdInc = 1;
 /** Cost of movement for each one-sixteenth of a tile */
 struct CostField
 {
-	std::vector<uint16_t> cost;
+	std::vector<uint16_t> cost;  // cells units
 	void world_setCost(uint16_t worldx, uint16_t worldy, uint16_t value)
 	{
 		uint16_t cellx, celly;
@@ -382,7 +410,6 @@ struct CostField
 		uint16_t cell_startx, cell_starty;
 		world_to_cell(pos.x, pos.y, cell_startx, cell_starty);
 		uint16_t cellradius;
-
 		uint16_t radius_cells_mod = world_to_cell(radius, cellradius);
 		// add 1 if spills to the next cell
 		cellradius += (uint16_t) (radius_cells_mod > 0);
@@ -558,8 +585,8 @@ public:
 	// vertical line of len = 2 will have goalYExtent equal to 2, and goalXextent equal to 1
 	const uint16_t goalXExtent = 4; // cells units
 	const uint16_t goalYExtent = 4; // cells units
-	std::vector<Directions> dirs;  // cells units
-	std::vector<bool> impassable; // TODO use bitfield if used, or remove if not used
+	std::vector<Directions> dirs;   // cells units
+	std::vector<bool> impassable;   // cells units. TODO use bitfield if used, or remove if not used
 	
 	Flowfield (uint32_t id_, uint16_t goalX_, uint16_t goalY_, PROPULSION_TYPE prop_, uint16_t goalXExtent_, uint16_t goalYExtent_)
 	: id(id_), goalX(goalX_), goalY(goalY_), prop(prop_), goalXExtent(goalXExtent_), goalYExtent(goalYExtent_)
@@ -576,9 +603,21 @@ public:
 		return impassable.at(cells_2Dto1D(cellx, celly));
 	}
 
-	bool cell_isImpassable(uint16_t cellx, uint16_t celly) const 
+	bool cell_isImpassable (uint16_t cellx, uint16_t celly) const 
 	{
 		return impassable.at(cells_2Dto1D(cellx, celly));
+	}
+
+	bool cell_isGoal (uint16_t cellx, uint16_t celly) const
+	{
+		return isInsideGoal(goalX, goalY, cellx, celly, goalXExtent, goalYExtent);
+	}
+
+	bool world_isGoal (uint16_t worldx, uint16_t worldy) const
+	{
+		uint16_t cellx, celly;
+		world_to_cell(worldx, worldy, cellx, celly);
+		return cell_isGoal(cellx, celly);
 	}
 
 	Directions cell_getDir (uint16_t cellx, uint16_t celly, uint8_t radius) const
@@ -640,12 +679,12 @@ public:
 
 	void calculateFlows()
 	{
+		if (!costInitialized) return;
 		const std::vector<uint16_t> integrationField = integrateCosts();
 		dirs.resize(CELL_AREA);
 		ASSERT_OR_RETURN(, integrationField.size() == CELL_AREA, "invariant failed");
 		static_assert((int) Directions::DIR_NONE == 0, "Invariant failed");
 		static_assert(DIR_TO_VEC_SIZE == 9, "dirToVec must be sync with Directions!");
-		//debug (LOG_FLOWFIELD, "flowfield size=%lu", integrationField.size());
 		for (uint32_t cellIdx = 0; cellIdx < integrationField.size(); cellIdx++)
 		{
 			const auto cost = integrationField[cellIdx];
@@ -791,7 +830,8 @@ bool tryGetFlowfieldDirection(PROPULSION_TYPE prop, const Position &pos, const V
 	}
 	// get direction at current droid position
 	out = results->at(cell_goal)->world_getDir(pos.x, pos.y, radius);
-	debug (LOG_FLOWFIELD, "found a flowfield for %i, DIR_%i", cell_goal, (int) out - (int) Directions::DIR_0);
+	// debug (LOG_FLOWFIELD, "found a flowfield for %i, DIR_%i", cell_goal, (int) out - (int) Directions::DIR_0);
+	// TODO: calculate distance from pos to closest goal
 	return true;
 }
 
@@ -951,13 +991,13 @@ uint16_t calculateTileCost(uint16_t x, uint16_t y, PROPULSION_TYPE propulsion)
 
 void initCostFields()
 {
-	costInitialized = true;
 	debug (LOG_FLOWFIELD, "Cell Area=%i MapWidth=%i MapHeight=%i, CELL_X_LEN=%i CELL_Y_LEN=%i",
 	       CELL_AREA, mapWidth, mapHeight, CELL_X_LEN, CELL_Y_LEN);
 	costFields[propulsionIdx2[PROPULSION_TYPE_WHEELED]]->adjust();
 	costFields[propulsionIdx2[PROPULSION_TYPE_PROPELLOR]]->adjust();
 	costFields[propulsionIdx2[PROPULSION_TYPE_HOVER]]->adjust();
 	costFields[propulsionIdx2[PROPULSION_TYPE_LIFT]]->adjust();
+	costInitialized = true;
 	for (int mapx = 0; mapx < mapWidth; mapx++)
 	{
 		for (int mapy = 0; mapy < mapHeight; mapy++)
@@ -988,33 +1028,137 @@ void destroyflowfieldResults()
 }
 
 // draw a square where half of sidelen goes in each direction
-static void drawSquare (const glm::mat4 &mvp, int sidelen, int startPointX, int startPointY, int height, PIELIGHT color)
+static void drawSquare (const glm::mat4 &mvp, int sidelen, int startX, int startY, int height, PIELIGHT color)
 {
 	iV_PolyLine({
-		{ startPointX - (sidelen / 2), height, -startPointY - (sidelen / 2) },
-		{ startPointX - (sidelen / 2), height, -startPointY + (sidelen / 2) },
-		{ startPointX + (sidelen / 2), height, -startPointY + (sidelen / 2) },
-		{ startPointX + (sidelen / 2), height, -startPointY - (sidelen / 2) },
-		{ startPointX - (sidelen / 2), height, -startPointY - (sidelen / 2) },
+		{ startX - (sidelen / 2), height, -startY - (sidelen / 2) },
+		{ startX - (sidelen / 2), height, -startY + (sidelen / 2) },
+		{ startX + (sidelen / 2), height, -startY + (sidelen / 2) },
+		{ startX + (sidelen / 2), height, -startY - (sidelen / 2) },
+		{ startX - (sidelen / 2), height, -startY - (sidelen / 2) },
+	}, mvp, color);
+}
+// no half-side translation
+// world coordinates
+static void drawSquare2 (const glm::mat4 &mvp, int sidelen, int startX, int startY, int height, PIELIGHT color)
+{
+	iV_PolyLine({
+		{ startX, height, -startY },
+		{ startX, height, -startY - (sidelen) },
+		{ startX + (sidelen), height, -startY - (sidelen) },
+		{ startX + (sidelen), height, -startY },
+		{ startX, height, -startY},
 	}, mvp, color);
 }
 
-static void renderDebugText (const char *txt, int vert_idx)
+static void (*curDraw) (const glm::mat4&, int, int, int, int, PIELIGHT) = &drawSquare2;
+static bool isOne = false;
+static bool drawYellowLines = false;
+
+void toggleYellowLines()
+{
+	drawYellowLines = !drawYellowLines;
+}
+
+void toggleDrawSquare()
+{
+	if (isOne)
+	{
+		curDraw = &drawSquare2;
+		isOne = false;
+	}
+	else
+	{
+		curDraw = &drawSquare;
+		isOne = true;
+	}
+}
+
+// alpha fully opaque
+static const PIELIGHT WZ_WHITE {0xFF, 0xFF, 0xFF, 0xFF};
+
+static void debugRenderText (const char *txt, int vert_idx)
 {
 	const int TEXT_SPACEMENT = 20;
 	WzText t(WzString (txt), font_regular);
-	t.render(20, 80 + TEXT_SPACEMENT * vert_idx, WZCOL_TEXT_DARK);
+	t.render(20, 80 + TEXT_SPACEMENT * vert_idx, WZ_WHITE);
+}
+
+static void drawLines(const glm::mat4& mvp, std::vector<Vector3i> pts, PIELIGHT color)
+{
+	std::vector<glm::ivec4> grid2D;
+	for (int i = 0; i < pts.size(); i += 2)
+	{
+		Vector2i _a, _b;
+		pie_RotateProjectWithPerspective(&pts[i],     mvp, &_a);
+		pie_RotateProjectWithPerspective(&pts[i + 1], mvp, &_b);
+		grid2D.push_back({_a.x, _a.y, _b.x, _b.y});
+	}
+	iV_Lines(grid2D, color);
+}
+
+// ugly hack to fill a tile *partially* because I can't
+// display a filled rectangle on a tile with right projection ... 
+static void debugDrawImpassableCell(const glm::mat4& mvp, uint16_t cellx, uint16_t celly, uint16_t height)
+{
+	uint16_t wx, wy;
+	cell_to_world(cellx, celly, wx, wy);
+	std::vector<Vector3i> pts;
+	int slice = FF_UNIT / 8;
+	for (int i = 0; i < 8; i++)
+	{
+
+		pts.push_back({wx, height, -(wy + slice * i)});
+		pts.push_back({wx + FF_UNIT, height, -(wy + slice * i)});
+	}
+	drawLines(mvp, pts, WZCOL_RED);
+}
+
+// red contour tiles which are fpathImpassable (terrain + structures)
+static void debugDrawImpassableTile(const glm::mat4 &mvp, uint16_t mapx, uint16_t mapy)
+{
+	uint16_t wx, wy;
+	wx = map_coord(mapx);
+	wy = map_coord(mapy);
+	std::vector<Vector3i> pts;
+	int slice = FF_TILE_SIZE / 8;
+	auto height = map_TileHeight(mapx, mapy) + 10;
+	for (int i = 0; i < 16; i++)
+	{
+		
+		pts.push_back({wx, height, -(wy + slice * i)});
+		pts.push_back({wx + FF_TILE_SIZE, height, -(wy + slice * i)});
+	}
+	drawSquare2 (mvp, 128, world_coord(mapx), world_coord(mapy), height, WZCOL_RED);
+	drawLines (mvp, pts, WZCOL_RED);
+}
+
+void debugDrawImpassableTiles(const glm::mat4 &mvp)
+{
+	const auto playerXTile = map_coord(playerPos.p.x);
+	const auto playerYTile = map_coord(playerPos.p.z); // on 2D Map, this is actually Y
+ 	for (int dx = -6; dx <= 6; dx++)
+	{
+		for (int dy = 0; dy <=6; dy++)
+		{
+			const auto x = playerXTile + dx;
+			const auto y = playerYTile + dy;
+			if (isTerrainBlocked(x, y))
+			{
+				debugDrawImpassableTile(mvp, x, y);
+			}
+		}
+	}
 }
 
 void debugDrawFlowfield(const DROID *psDroid, const glm::mat4 &mvp) 
 {
 	const auto playerXTile = map_coord(playerPos.p.x);
 	const auto playerYTile = map_coord(playerPos.p.z); // on 2D Map, this is actually Y
-	//Flowfield* flowfield = nullptr;
-//	PROPULSION_STATS       *psPropStats = asPropulsionStats + psDroid->asBits[COMP_PROPULSION];
-	// if (!tryGetFlowfieldForTarget(psDroid->sMove.destination.x, psDroid->sMove.destination.y, psPropStats->propulsionType)) return;
-
+	// Flowfield* flowfield = nullptr;
+	// pie_UniTransBoxFill(psDroid->pos.x, psDroid->pos.y, psDroid->pos.x+400, psDroid->pos.y+400, WZ_WHITE);
 	// const auto& costField = costFields[propulsionIdx2[PROPULSION_TYPE_WHEELED]];
+//	PROPULSION_STATS       *psPropStats = asPropulsionStats + psDroid->asBits[COMP_PROPULSION];
 	for (auto deltaX = -6; deltaX <= 6; deltaX++)
 	{
 		const auto x = playerXTile + deltaX;
@@ -1025,7 +1169,7 @@ void debugDrawFlowfield(const DROID *psDroid, const glm::mat4 &mvp)
 		{
 			const auto y = playerYTile + deltaY;
 
-			if(y < 0) continue;
+			if (y < 0) continue;
 
 			const int X = world_coord(x);
 			const int Y = world_coord(y);
@@ -1045,42 +1189,55 @@ void debugDrawFlowfield(const DROID *psDroid, const glm::mat4 &mvp)
 				{ X1, height_x1y1, -Y1 },
 			}, mvp, WZCOL_GREY);
 
-			std::vector<Vector3i> pts {
-				// 3 vertical lines ...
-				{ (X + FF_UNIT), height_xy, -Y },
-				{ (X + FF_UNIT), height_xy1, -(Y + FF_TILE_SIZE) },
-
-				{ (X + FF_UNIT * 2), height_xy, -Y },
-				{ (X + FF_UNIT * 2), height_xy1, -(Y + FF_TILE_SIZE) },
-				
-				{ (X + FF_UNIT * 3), height_xy, -Y },
-				{ (X + FF_UNIT * 3), height_xy1, -(Y + FF_TILE_SIZE) },
-
-				// 3 horizontal lines
-				{ X, height_xy, -(Y + FF_UNIT)},
-				{ X + FF_TILE_SIZE, height_x1y, -(Y + FF_UNIT)},
-
-				{ X, height_xy, -(Y + FF_UNIT * 2)},
-				{ X + FF_TILE_SIZE, height_x1y, -(Y + FF_UNIT * 2)},
-
-				{ X, height_xy, -(Y + FF_UNIT * 3)},
-				{ X + FF_TILE_SIZE, height_x1y, -(Y + FF_UNIT * 3)},
-			};
-			std::vector<glm::ivec4> grid2D;
-			for (int i = 0; i < pts.size(); i += 2)
+			if (drawYellowLines)
 			{
-				Vector2i _a, _b;
-				pie_RotateProjectWithPerspective(&pts[i],     mvp, &_a);
-				pie_RotateProjectWithPerspective(&pts[i + 1], mvp, &_b);
-				grid2D.push_back({_a.x, _a.y, _b.x, _b.y});
+				std::vector<Vector3i> pts {
+					// 3 vertical lines ...
+					{ (X + FF_UNIT), height_xy, -Y },
+					{ (X + FF_UNIT), height_xy1, -(Y + FF_TILE_SIZE) },
+
+					{ (X + FF_UNIT * 2), height_xy, -Y },
+					{ (X + FF_UNIT * 2), height_xy1, -(Y + FF_TILE_SIZE) },
+					
+					{ (X + FF_UNIT * 3), height_xy, -Y },
+					{ (X + FF_UNIT * 3), height_xy1, -(Y + FF_TILE_SIZE) },
+
+					// 3 horizontal lines
+					{ X, height_xy, -(Y + FF_UNIT)},
+					{ X + FF_TILE_SIZE, height_x1y, -(Y + FF_UNIT)},
+
+					{ X, height_xy, -(Y + FF_UNIT * 2)},
+					{ X + FF_TILE_SIZE, height_x1y, -(Y + FF_UNIT * 2)},
+
+					{ X, height_xy, -(Y + FF_UNIT * 3)},
+					{ X + FF_TILE_SIZE, height_x1y, -(Y + FF_UNIT * 3)},
+				};
+				std::vector<glm::ivec4> grid2D;
+				for (int i = 0; i < pts.size(); i += 2)
+				{
+					Vector2i _a, _b;
+					pie_RotateProjectWithPerspective(&pts[i],     mvp, &_a);
+					pie_RotateProjectWithPerspective(&pts[i + 1], mvp, &_b);
+					grid2D.push_back({_a.x, _a.y, _b.x, _b.y});
+				}
+				iV_Lines(grid2D, WZCOL_YELLOW);
 			}
-			static bool dbg = false;
-			if (!dbg)
-			{
-				debug(LOG_FLOWFIELD, "grid2d size: %zu, ", grid2D.size());
-				dbg = true;
-			}
-			iV_Lines(grid2D, WZCOL_YELLOW);
+			// std::vector<uint32_t> cellIndices;
+			// cells_of_tile(X, Y, cellIndices);
+			// for (auto cellidx : cellIndices)
+			// {
+			// 	Directions dir;
+			// 	tryGetFlowfieldDirection(psPropStats->propulsionType,
+			// 		psDroid->pos, psDroid->sMove.destination, 
+			// 		moveObjRadius(psDroid), dir);
+			// 	uint16_t cell_startx, cell_starty;
+			// 	world_to_cell(X, Y, cell_startx, cell_starty);
+			// 	if (dir == Directions::DIR_NONE)
+			// 	{
+			// 		debugDrawImpassableCell(mvp, cell_startx, cell_starty, height_xy);
+			// 	}
+			// }
+
 			// drawSquare(mvp, 32, X, Y, height_xy, WZCOL_YELLOW);
 			// cost
 			// const Vector3i a = { (X + 20), height, -(Y + 20) };
@@ -1105,6 +1262,7 @@ void debugDrawFlowfield(const DROID *psDroid, const glm::mat4 &mvp)
 	 	}
 	}
 	/*
+	
 	// flowfields
 	for (auto deltaX = -6; deltaX <= 6; deltaX++)
 	{
@@ -1124,19 +1282,19 @@ void debugDrawFlowfield(const DROID *psDroid, const glm::mat4 &mvp)
 
 			auto vector = flowfield->getVector(x, z);
 			
-			auto startPointX = X; + FF_TILE_SIZE / 2;
-			auto startPointY = Y; + FF_TILE_SIZE / 2;
+			auto startX = X; + FF_TILE_SIZE / 2;
+			auto startY = Y; + FF_TILE_SIZE / 2;
 
 			auto height = map_TileHeight(x, z) + 10;
 
 			// origin
 			if (!flowfield->isImpassable(x, z))
 			{
-				drawSquare(mvp, 16, startPointX, startPointY, height, WZCOL_WHITE);
+				drawSquare(mvp, 16, startX, startY, height, WZCOL_WHITE);
 				// direction
 				iV_PolyLine({
-					{ startPointX, height, -startPointY },
-					{ startPointX + vector.x * 75, height, -startPointY - vector.y * 75 },
+					{ startX, height, -startY },
+					{ startX + vector.x * 75, height, -startY - vector.y * 75 },
 				}, mvp, WZCOL_WHITE);
 			}
 
@@ -1168,42 +1326,64 @@ void debugDrawFlowfield(const DROID *psDroid, const glm::mat4 &mvp)
 	// 	}
 	// }
 	*/
+	
+	// const int height_xy = map_TileHeight(psDroid->pos.x, psDroid->pos.y)+10;
+	// Vector3i box[2] = {
+	// 	{ psDroid->pos.x, height_xy, -psDroid->pos.y},
+	// 	{ psDroid->pos.x + 64, height_xy, -psDroid->pos.y + 64}
+	// };
+	// Vector2i box_result[2];
+	// pie_RotateProjectWithPerspective(&box[0],     mvp, &box_result[0]);
+	// pie_RotateProjectWithPerspective(&box[1],     mvp, &box_result[1]);
+	// pie_BoxFill_mvp(mvp, box_result[0].x, box_result[0].y, box_result[0].x, box_result[0].y, WZ_WHITE);
 }
 
 // even if flowfield disabled, just for sake of information
 static void drawUnitDebugInfo (const DROID *psDroid, const glm::mat4 &mvp)
 {
 	// some droid sinfo
-	auto startPointX = psDroid->pos.x;
-	auto startPointY = psDroid->pos.y;
+	auto startX = psDroid->pos.x;
+	auto startY = psDroid->pos.y;
+	uint16_t cell_startx, cell_starty;
+	world_to_cell(startX, startY, cell_startx, cell_starty);
+
 	auto target = (psDroid->pos.xy() - psDroid->sMove.target);
 	auto destination = (psDroid->pos.xy() - psDroid->sMove.destination);
-	auto height = map_TileHeight(map_coord(startPointX), map_coord(startPointY)) + 10;
+	auto height = map_TileHeight(map_coord(startX), map_coord(startY)) + 10;
+
 	iV_PolyLine({
-		{ startPointX, height, -startPointY },
-		{ startPointX + static_cast<int>(target.x), height, 
-		 -startPointY - static_cast<int>(target.y)},
+		{ startX, height, -startY },
+		{ startX + static_cast<int>(target.x), height, 
+		 -startY - static_cast<int>(target.y)},
 		}, mvp, WZCOL_LBLUE);
 	iV_PolyLine({
-		{ startPointX, height, -startPointY },
-		{ startPointX + static_cast<int>(destination.x), height, 
-		 -startPointY - static_cast<int>(destination.y)},
+		{ startX, height, -startY },
+		{ startX + static_cast<int>(destination.x), height, 
+		 -startY - static_cast<int>(destination.y)},
 		}, mvp, WZCOL_DBLUE);
 
 	int idx = 0;
 	char tmpBuff[64] = {0};
 	ssprintf(tmpBuff, "Selected Droid %i", psDroid->id);
-	renderDebugText(tmpBuff, idx++);
+	debugRenderText(tmpBuff, idx++);
 
 	tmpBuff[64] = {0};
 	ssprintf(tmpBuff, "Flowfield is %s", flowfieldEnabled ? "ON" : "OFF");
-	renderDebugText(tmpBuff, idx++);
+	debugRenderText(tmpBuff, idx++);
 
+	tmpBuff[64] = {0};
+	uint16_t cellx, celly;
+	world_to_cell(psDroid->pos.x, psDroid->pos.y, cellx, celly);
+	ssprintf(tmpBuff, "Pos: %i %i (%i %i %i %i)", 
+		psDroid->pos.x, psDroid->pos.y, 
+		map_coord(psDroid->pos.x), map_coord(psDroid->pos.y), cellx, celly);
+	debugRenderText(tmpBuff, idx++);
+	
 	tmpBuff[64] = {0};
 	ssprintf(tmpBuff, "Target (LB): %i %i (%i %i)", 
 		psDroid->sMove.target.x, psDroid->sMove.target.y, 
 		map_coord(psDroid->sMove.target.x), map_coord(psDroid->sMove.target.y));
-	renderDebugText(tmpBuff, idx++);
+	debugRenderText(tmpBuff, idx++);
 
 	tmpBuff[64] = {0};
 	uint16_t cell_destx, cell_desty;
@@ -1212,36 +1392,36 @@ static void drawUnitDebugInfo (const DROID *psDroid, const glm::mat4 &mvp)
 		psDroid->sMove.destination.x, psDroid->sMove.destination.y, 
 		map_coord(psDroid->sMove.destination.x), map_coord(psDroid->sMove.destination.y),
 		cell_destx, cell_desty);
-	renderDebugText(tmpBuff, idx++);
+	debugRenderText(tmpBuff, idx++);
 
 	tmpBuff[64] = {0};
 	ssprintf(tmpBuff, "Src: %i %i (%i %i)", psDroid->sMove.src.x, psDroid->sMove.src.y, 
 		map_coord(psDroid->sMove.src.x), map_coord(psDroid->sMove.src.y));
-	renderDebugText(tmpBuff, idx++);
+	debugRenderText(tmpBuff, idx++);
 
 	tmpBuff[64] = {0};
 	sprintf(tmpBuff, "moveDir: %i (%.2f %.2f)", psDroid->sMove.moveDir, 
 		static_cast<float>(iSin(psDroid->sMove.moveDir)) / static_cast<float>((1 << 16)), 
 		static_cast<float>(iCos(psDroid->sMove.moveDir)) / static_cast<float>((1 << 16)));
-	renderDebugText(tmpBuff, idx++);
+	debugRenderText(tmpBuff, idx++);
 
 	PROPULSION_STATS       *psPropStats = asPropulsionStats + psDroid->asBits[COMP_PROPULSION];
 	tmpBuff[64] = {0};
 	sprintf(tmpBuff, "speed: %i (Prop maxspeed=%i)", psDroid->sMove.speed, psPropStats->maxSpeed);
-	renderDebugText(tmpBuff, idx++);
+	debugRenderText(tmpBuff, idx++);
 
 	tmpBuff[64] = {0};
 	if (psDroid->sMove.pathIndex != (int)psDroid->sMove.asPath.size())
 	{
 		Vector2i next = psDroid->sMove.asPath[psDroid->sMove.pathIndex];
 		sprintf(tmpBuff, "Next path target: %i %i, path len %lu", map_coord(next.x), map_coord(next.y), psDroid->sMove.asPath.size());
-		renderDebugText(tmpBuff, idx++);
+		debugRenderText(tmpBuff, idx++);
 	}
 	else if (psDroid->sMove.asPath.size() == 1)
 	{
 		Vector2i next = psDroid->sMove.asPath[0];
 		sprintf(tmpBuff, "Next path (and only) target: %i %i (%i %i)", next.x, next.y, map_coord(next.x), map_coord(next.y));
-		renderDebugText(tmpBuff, idx++);
+		debugRenderText(tmpBuff, idx++);
 	}
 
 	tmpBuff[64] = {0};
@@ -1249,44 +1429,62 @@ static void drawUnitDebugInfo (const DROID *psDroid, const glm::mat4 &mvp)
 	bool mod = world_to_cell(moveObjRadius(psDroid), cell_radius);
 	cell_radius += (int) mod > 0;
 	sprintf(tmpBuff, "Radius: %i (cells %i)", moveObjRadius(psDroid), cell_radius);
-	renderDebugText(tmpBuff, idx++);
+	debugRenderText(tmpBuff, idx++);
 	
 	tmpBuff[64] = {0};
 	sprintf(tmpBuff, "Prop SpinSpeed (DEG %i): %i", psPropStats->spinSpeed, DEG(psPropStats->spinSpeed));
-	renderDebugText(tmpBuff, idx++);
+	debugRenderText(tmpBuff, idx++);
 
 	tmpBuff[64] = {0};
 	sprintf(tmpBuff, "Prop SpinAngle DEG: %i", psPropStats->spinAngle);
-	renderDebugText(tmpBuff, idx++);
+	debugRenderText(tmpBuff, idx++);
 
 	tmpBuff[64] = {0};
 	sprintf(tmpBuff, "Prop TurnSpeed: %i", psPropStats->turnSpeed);
-	renderDebugText(tmpBuff, idx++);
+	debugRenderText(tmpBuff, idx++);
 
 	tmpBuff[64] = {0};
 	sprintf(tmpBuff, "Prop Acceleration: %i", psPropStats->acceleration);
-	renderDebugText(tmpBuff, idx++);
+	debugRenderText(tmpBuff, idx++);
 
 	tmpBuff[64] = {0};
 	sprintf(tmpBuff, "Prop Deceleration: %i", psPropStats->deceleration);
-	renderDebugText(tmpBuff, idx++);
+	debugRenderText(tmpBuff, idx++);
 	
 	auto collisionRadius = moveObjRadius(psDroid);
-	drawSquare (mvp, collisionRadius, startPointX, startPointY, height, WZCOL_RED);
+	uint16_t nwx, nwy;
+	cell_to_world(cell_startx, cell_starty, nwx, nwy);
+	curDraw (mvp, collisionRadius, nwx, nwy, height, WZCOL_RED);
+	debugDrawImpassableCell(mvp, cell_startx, cell_starty, height);
 
 	tmpBuff[64] = {0};
 	uint16_t cells_radius;
 	world_to_cell(collisionRadius, cells_radius);
 	sprintf(tmpBuff, "Collision radius: %i (cells %i)", collisionRadius, cells_radius);
-	renderDebugText(tmpBuff, idx++);
+	debugRenderText(tmpBuff, idx++);
 
 	tmpBuff[64] = {0};
 	sprintf(tmpBuff, "Flowfield size (ground): %li", flowfieldResults[0].size());
-	renderDebugText(tmpBuff, idx++);
+	debugRenderText(tmpBuff, idx++);
+
+	tmpBuff[64] = {0};
+	sprintf(tmpBuff, "Radius drawing func: %i", isOne ? 1 : 2);
+	debugRenderText(tmpBuff, idx++);
+
+	tmpBuff[64] = {0};
+	sprintf(tmpBuff, "Coloring impassable tiles: %s", _drawImpassableTiles ? "ON" : "OFF");
+	debugRenderText(tmpBuff, idx++);
 }
 
 
 static DROID *lastSelected = nullptr;
+
+
+void toogleImpassableTiles()
+{
+	_drawImpassableTiles = !_drawImpassableTiles;
+}
+
 void debugDrawFlowfields(const glm::mat4 &mvp)
 {
 	// transports cannot be selected?
@@ -1297,8 +1495,11 @@ void debugDrawFlowfields(const glm::mat4 &mvp)
 		lastSelected = psDroid;
 		break;
 	}
+
+	if (isFlowfieldEnabled() && lastSelected)  debugDrawFlowfield(lastSelected, mvp);
+	if (_drawImpassableTiles) debugDrawImpassableTiles(mvp);
 	if (!lastSelected) return;
 	drawUnitDebugInfo(lastSelected, mvp);
-	if (isFlowfieldEnabled()) 
-		debugDrawFlowfield(lastSelected, mvp);
+	std::vector<uint32_t> out;
+	if (false) cells_of_tile(0,0, out);
 }

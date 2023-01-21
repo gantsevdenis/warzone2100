@@ -2646,6 +2646,18 @@ void kf_ToggleFlowField()
 	flowfieldToggle();
 }
 
+void kf_ToggleDraw()
+{
+	toggleDrawSquare();
+}
+void kf_ToggleYellowLines()
+{
+	toggleYellowLines();
+}
+void kf_ToggleImpassableTiles()
+{
+	toogleImpassableTiles();
+}
 void keybindShutdown()
 {
 	psOldRE = nullptr;

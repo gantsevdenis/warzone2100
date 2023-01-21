@@ -199,6 +199,9 @@ void kf_ToggleFullscreen();
 
 void kf_ToggleSpecOverlays();
 void kf_ToggleFlowField();
+void kf_ToggleDraw();
+void kf_ToggleYellowLines();
+void kf_ToggleImpassableTiles();
 void enableGodMode();
 
 void keybindShutdown();

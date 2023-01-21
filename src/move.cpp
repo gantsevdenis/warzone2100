@@ -538,7 +538,7 @@ static bool moveNextTarget(DROID *psDroid)
 
 // Watermelon:fix these magic number...the collision radius should be based on pie imd radius not some static int's...
 // note, tile size is 128
-// static int mvPersRad = 16, mvCybRad = 32, mvSmRad = 32, mvMedRad = 64, mvLgRad = 64, mvSuperHeavy = 128;
+// static   int mvPersRad = 16, mvCybRad = 32, mvSmRad = 32, mvMedRad = 64, mvLgRad = 64, mvSuperHeavy = 128;
 // static	int mvPersRad = 20, mvCybRad = 30, mvSmRad = 40, mvMedRad = 50, mvLgRad = 60;
 
 
@@ -2345,7 +2345,30 @@ void moveUpdateDroid_original(DROID *psDroid)
 }
 
 // ================== moveUpdateDroid_original END ==================
+Vector2i ff_iNormalize(Vector2i v)
+{
+	int32_t magnitude = iSqrt(v.x * v.x + v.y * v.y);
+	return {v.x / magnitude, v.y / magnitude};
+}
 
+Vector2i ff_iLimit(Vector2i v, int32_t limit)
+{
+	return (ff_iNormalize(v) * limit);
+}
+
+// called every cycle
+void ff_update(DROID &droid)
+{
+	droid.sMove.physics.velocity += droid.sMove.physics.acceleration;
+	// TODO cap velocity to some ceiling
+	droid.pos += droid.sMove.physics.velocity;
+	droid.sMove.physics.acceleration = {0, 0};
+}
+// called when needed
+void ff_applyForce(DROID &droid, Vector2i force)
+{
+	droid.sMove.physics.acceleration += (force / droid.sMove.physics.mass);
+}
 
 static uint16_t directionToUint16(Directions dir)
 {

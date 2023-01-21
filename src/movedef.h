@@ -40,14 +40,25 @@ enum MOVE_STATUS
 	MOVEWAITROUTE,		// Droid waits for A* to finish but starts moving in target direction
 	MOVESHUFFLE,		// Droid moves a bit around waypoint
 };
+struct PhysicsData
+{
+	Vector2i acceleration {0, 0};
+	// this velocity is only direction, magnitude is always 1
+	// assume that
+	Vector2i velocity = {0, 0};
+	// we already have psDroid->pos. for position
+	int maxSpeed = 1;
+	uint32_t mass = 1;
+	uint16_t maxForce = 0.1;
 
+}
 struct MOVE_CONTROL
 {
 	MOVE_STATUS Status = MOVEINACTIVE;    ///< Inactive, Navigating or moving point to point status
 	int pathIndex = 0;                    ///< Position in asPath
 	std::vector<Vector2i> asPath;         ///< Pointer to list of block X,Y map coordinates.
 	unsigned int flowfieldId = 0;           /// ID of designated flowfield
-
+	PhysicsData physics;
 	Vector2i destination = Vector2i(0, 0);                 ///< World coordinates of movement destination
 	Vector2i src = Vector2i(0, 0);
 	Vector2i target = Vector2i(0, 0);

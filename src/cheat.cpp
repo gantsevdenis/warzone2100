@@ -91,7 +91,10 @@ static CHEAT_ENTRY cheatCodes[] =
 	{"autogame off", kf_AutoGame},
 	{"shakey", kf_ToggleShakeStatus}, //shakey
 	{"list droids", kf_ListDroids},
-	{"toggleff", kf_ToggleFlowField} // switch between Flow field and regular pathfinding / movement logic
+	{"tff", kf_ToggleFlowField}, // switch between Flow field and regular pathfinding / movement logic
+	{"tsq", kf_ToggleDraw},
+	{"tyl", kf_ToggleYellowLines},
+	{"tit", kf_ToggleImpassableTiles},
 
 };
 

@@ -99,11 +99,13 @@ bool fpathIsEquivalentBlocking(PROPULSION_TYPE propulsion1, int player1, FPATH_M
 bool fpathBlockingTile(SDWORD x, SDWORD y, PROPULSION_TYPE propulsion);
 bool fpathDroidBlockingTile(DROID *psDroid, int x, int y, FPATH_MOVETYPE moveType);
 bool fpathBaseBlockingTile(SDWORD x, SDWORD y, PROPULSION_TYPE propulsion, int player, FPATH_MOVETYPE moveType);
-
+bool propulsionRelatedBlock(SDWORD x, SDWORD y, PROPULSION_TYPE propulsion, int mapIndex);
 static inline bool fpathBlockingTile(Vector2i tile, PROPULSION_TYPE propulsion)
 {
 	return fpathBlockingTile(tile.x, tile.y, propulsion);
 }
+
+uint8_t prop2bits(PROPULSION_TYPE propulsion);
 
 /** Set a direct path to position.
  *

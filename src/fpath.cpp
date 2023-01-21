@@ -191,7 +191,7 @@ bool fpathIsEquivalentBlocking(PROPULSION_TYPE propulsion1, int player1, FPATH_M
 	return true;
 }
 
-static uint8_t prop2bits(PROPULSION_TYPE propulsion)
+uint8_t prop2bits(PROPULSION_TYPE propulsion)
 {
 	uint8_t bits;
 
@@ -211,6 +211,12 @@ static uint8_t prop2bits(PROPULSION_TYPE propulsion)
 		break;
 	}
 	return bits;
+}
+
+bool propulsionRelatedBlock(SDWORD x, SDWORD y, PROPULSION_TYPE propulsion, int mapIndex)
+{
+	unsigned unitbits = prop2bits(propulsion);
+	return (blockTile(x, y, MAX(0, mapIndex - MAX_PLAYERS)) & unitbits) != 0; 
 }
 
 // Check if the map tile at a location blocks a droid
@@ -245,7 +251,7 @@ bool fpathBaseBlockingTile(SDWORD x, SDWORD y, PROPULSION_TYPE propulsion, int m
 	}
 
 	// the MAX hack below is because blockTile() range does not include player-specific versions...
-	return (blockTile(x, y, MAX(0, mapIndex - MAX_PLAYERS)) & unitbits) != 0;  // finally check if move is blocked by propulsion related factors
+	return propulsionRelatedBlock(x, y, propulsion, mapIndex);  // finally check if move is blocked by propulsion related factors
 }
 
 bool fpathDroidBlockingTile(DROID *psDroid, int x, int y, FPATH_MOVETYPE moveType)

@@ -121,4 +121,7 @@ bool ffpathInitialise();
 /// Shut down infrastructure (threads ...) for flowfield pathfinding.
 void ffpathShutdown();
 
+void toggleYellowLines();
+void toggleDrawSquare();
+void toogleImpassableTiles();
 #endif // __INCLUDED_SRC_FLOWFIELD_H__

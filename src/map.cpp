@@ -2103,3 +2103,8 @@ void mapUpdate()
 		wzSemaphorePost(dangerSemaphore);
 	}
 }
+
+bool isBlockTile(int x, int y)
+{
+	return propulsionRelatedBlock(x, y, PROPULSION_TYPE_WHEELED, 0);
+}
