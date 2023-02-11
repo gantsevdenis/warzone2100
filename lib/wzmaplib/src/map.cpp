@@ -680,7 +680,7 @@ static int8_t bjoConvertPlayer(uint32_t bjoPlayer, uint32_t mapMaxPlayers)
 		return PLAYER_SCAVENGERS;
 	}
 
-	return bjoPlayer;
+	return 0xff & bjoPlayer;
 }
 
 static uint32_t convertPlayerToBJOPlayer(int8_t player, uint32_t mapMaxPlayers)
@@ -805,7 +805,7 @@ static optional<FileLoadResult<Structure>> loadBJOStructureInit(const std::strin
 		structure.position.x = x;
 		structure.position.y = y;
 		// ignore z component
-		structure.direction = DEG(direction);
+		structure.direction = 0xffff & (DEG(direction));
 		structure.player = bjoConvertPlayer(player, mapMaxPlayers);
 		// check inFire
 		if (inFire != 0)
@@ -1196,7 +1196,7 @@ static optional<FileLoadResult<Droid>> loadBJODroidInit(const std::string& filen
 		droid.position.x = (x & ~TILE_MASK) + TILE_UNITS / 2;
 		droid.position.y = (y & ~TILE_MASK) + TILE_UNITS / 2;
 		// ignore z component
-		droid.direction = DEG(direction);
+		droid.direction = 0xffff & (DEG(direction));
 		droid.player = bjoConvertPlayer(player, mapMaxPlayers);
 		// check inFire
 		if (inFire != 0)
@@ -1549,7 +1549,7 @@ static optional<FileLoadResult<Feature>> loadBJOFeatureInit(const std::string& f
 		feature.position.x = x;
 		feature.position.y = y;
 		// ignore z component
-		feature.direction = DEG(direction);
+		feature.direction = 0xffff & (DEG(direction));
 		// check player - ONLY POSSIBLY USED FOR CAMPAIGN, but prior code always ignored it??
 		auto converted_player = bjoConvertPlayer(player, mapMaxPlayers);
 		if (converted_player != PLAYER_SCAVENGERS && static_cast<uint32_t>(converted_player) != mapMaxPlayers)

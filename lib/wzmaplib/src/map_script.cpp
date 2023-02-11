@@ -288,7 +288,7 @@ static JSValue runMap_setMapData(JSContext *ctx, JSValueConst this_val, int argc
 		uint32_t textureUint32 = JSValueToUint32(ctx, textureVal);
 		SCRIPT_ASSERT_AND_RETURNERROR(ctx, textureUint32 <= (uint32_t)std::numeric_limits<uint16_t>::max(), "texture value exceeds uint16::max: %" PRIu32 "", textureUint32);
 		mapData->mMapTiles[n].texture = static_cast<uint16_t>(textureUint32);
-		mapData->mMapTiles[n].height = JSValueToUint32(ctx, heightVal);
+		mapData->mMapTiles[n].height = 0xffff & JSValueToUint32(ctx, heightVal);
 	}
 	bGotArrayLength = QuickJS_GetArrayLength(ctx, structures, arrayLen);
 	SCRIPT_ASSERT_AND_RETURNERROR(ctx, bGotArrayLength && (arrayLen <= (uint64_t)std::numeric_limits<uint16_t>::max()), "structures array length must be <= uint16::max; actual length is: %" PRIu64"", arrayLen);

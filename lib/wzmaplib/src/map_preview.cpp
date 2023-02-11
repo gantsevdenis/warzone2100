@@ -277,9 +277,9 @@ std::unique_ptr<MapPreviewImage> generate2DMapPreview(Map& wzMap, const MapPrevi
 			switch (terrainTypeWzMap(*WTile, *mapTerrainTypes))
 			{
 			case TER_CLIFFFACE:
-				p[0] = clrSch.plCliffL.r + (clrSch.plCliffH.r - clrSch.plCliffL.r) * col / 256;
-				p[1] = clrSch.plCliffL.g + (clrSch.plCliffH.g - clrSch.plCliffL.g) * col / 256;
-				p[2] = clrSch.plCliffL.b + (clrSch.plCliffH.b - clrSch.plCliffL.b) * col / 256;
+				p[0] = 0xff & (clrSch.plCliffL.r + (clrSch.plCliffH.r - clrSch.plCliffL.r) * col / 256);
+				p[1] = 0xff & (clrSch.plCliffL.g + (clrSch.plCliffH.g - clrSch.plCliffL.g) * col / 256);
+				p[2] = 0xff & (clrSch.plCliffL.b + (clrSch.plCliffH.b - clrSch.plCliffL.b) * col / 256);
 				break;
 			case TER_WATER:
 				p[0] = clrSch.plWater.r;
@@ -287,14 +287,14 @@ std::unique_ptr<MapPreviewImage> generate2DMapPreview(Map& wzMap, const MapPrevi
 				p[2] = clrSch.plWater.b;
 				break;
 			case TER_ROAD:
-				p[0] = clrSch.plRoadL.r + (clrSch.plRoadH.r - clrSch.plRoadL.r) * col / 256;
-				p[1] = clrSch.plRoadL.g + (clrSch.plRoadH.g - clrSch.plRoadL.g) * col / 256;
-				p[2] = clrSch.plRoadL.b + (clrSch.plRoadH.b - clrSch.plRoadL.b) * col / 256;
+				p[0] = 0xff & (clrSch.plRoadL.r + (clrSch.plRoadH.r - clrSch.plRoadL.r) * col / 256);
+				p[1] = 0xff & (clrSch.plRoadL.g + (clrSch.plRoadH.g - clrSch.plRoadL.g) * col / 256);
+				p[2] = 0xff & (clrSch.plRoadL.b + (clrSch.plRoadH.b - clrSch.plRoadL.b) * col / 256);
 				break;
 			default:
-				p[0] = clrSch.plGroundL.r + (clrSch.plGroundH.r - clrSch.plGroundL.r) * col / 256;
-				p[1] = clrSch.plGroundL.g + (clrSch.plGroundH.g - clrSch.plGroundL.g) * col / 256;
-				p[2] = clrSch.plGroundL.b + (clrSch.plGroundH.b - clrSch.plGroundL.b) * col / 256;
+				p[0] = 0xff & (clrSch.plGroundL.r + (clrSch.plGroundH.r - clrSch.plGroundL.r) * col / 256);
+				p[1] = 0xff & (clrSch.plGroundL.g + (clrSch.plGroundH.g - clrSch.plGroundL.g) * col / 256);
+				p[2] = 0xff & (clrSch.plGroundL.b + (clrSch.plGroundH.b - clrSch.plGroundL.b) * col / 256);
 				break;
 			}
 			WTile += 1;
