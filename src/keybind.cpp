@@ -2650,14 +2650,23 @@ void kf_ToggleDraw()
 {
 	toggleDrawSquare();
 }
+
 void kf_ToggleYellowLines()
 {
 	toggleYellowLines();
 }
+
+void kf_ExportFlowfield()
+{
+	debug (LOG_FLOWFIELD, "exporting flowfield");
+	exportFlowfieldSelected();
+}
+
 void kf_ToggleImpassableTiles()
 {
 	toogleImpassableTiles();
 }
+void kf_ToggleVectors() { toggleVectors(); }
 void keybindShutdown()
 {
 	psOldRE = nullptr;

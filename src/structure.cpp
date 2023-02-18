@@ -1370,7 +1370,7 @@ STRUCTURE *buildStructureDir(STRUCTURE_STATS *pStructureType, UDWORD x, UDWORD y
 {
 	STRUCTURE *psBuilding = nullptr;
 	const Vector2i size = pStructureType->size(direction);
-
+	bool		bUpgraded = false;
 	ASSERT_OR_RETURN(nullptr, player < MAX_PLAYERS, "Cannot build structure for player %" PRIu32 " (>= MAX_PLAYERS)", player);
 	ASSERT_OR_RETURN(nullptr, pStructureType && pStructureType->type != REF_DEMOLISH, "You cannot build demolition!");
 
@@ -1699,7 +1699,6 @@ STRUCTURE *buildStructureDir(STRUCTURE_STATS *pStructureType, UDWORD x, UDWORD y
 	}
 	else //its an upgrade
 	{
-		bool		bUpgraded = false;
 		int32_t         bodyDiff = 0;
 
 		//don't create the Structure use existing one
@@ -1827,7 +1826,7 @@ STRUCTURE *buildStructureDir(STRUCTURE_STATS *pStructureType, UDWORD x, UDWORD y
 
 	/* why is this necessary - it makes tiles under the structure visible */
 	setUnderTilesVis(psBuilding, player);
-	cbStructureBuilt(psBuilding);
+	if (!bUpgraded) cbStructureBuilt(psBuilding);
 	psBuilding->prevTime = gameTime - deltaGameTime;  // Structure hasn't been updated this tick, yet.
 	psBuilding->time = psBuilding->prevTime - 1;      // -1, so the times are different, even before updating.
 

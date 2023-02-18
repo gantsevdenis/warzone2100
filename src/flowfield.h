@@ -36,7 +36,7 @@
 	Concept: http://www.gameaipro.com/GameAIPro/GameAIPro_Chapter23_Crowd_Pathfinding_and_Steering_Using_Flow_Field_Tiles.pdf
 */
 
-///////////////////////////////////////////////////////////////////// SCRATCHPAD
+////////////////////////////////////////////////////////////////////// SCRATCHPAD
 // Useful functions found:
 // getTileMaxMin <- maybe?
 // TileIsOccupied <- maybe, to check if there is a building on that tile
@@ -68,18 +68,16 @@ enum class Quadrant { Q1, Q2, Q3, Q4};
 //   Quad3   |   Quad4
 //           |+y
 #define DIR_TO_VEC_SIZE 9
-const Vector2f dirToVec[DIR_TO_VEC_SIZE] = {
-	// already normalized direction vectors
-	// TODO use integers, not floats (trig.cpp)
-	Vector2f { 0.,              0.}, // NONE
-	Vector2f {-0.707107, -0.707107}, // DIR_0
-	Vector2f { 0.,             -1.}, // DIR_1
-	Vector2f { 0.707107, -0.707107}, // DIR_2
-	Vector2f {-1.,              0.}, // DIR_3
-	Vector2f { 1.,              0.}, // DIR_4
-	Vector2f {-0.707107,        1.}, // DIR_5
-	Vector2f { 0.,              1.}, // DIR_6
-	Vector2f { 0.707107,  0.707107}  // DIR_7
+const Vector2i dirToVec[DIR_TO_VEC_SIZE] = {
+	Vector2i { 0,              0}, // NONE
+	Vector2i {-1, -1}, // DIR_0
+	Vector2i { 0,             -1}, // DIR_1
+	Vector2i { 1, -1}, // DIR_2
+	Vector2i {-1,              0}, // DIR_3
+	Vector2i { 1,              0}, // DIR_4
+	Vector2i {-1,        1}, // DIR_5
+	Vector2i { 0,              1}, // DIR_6
+	Vector2i { 1,  1}  // DIR_7
 };
 
 
@@ -102,13 +100,14 @@ void cbStructureDestroyed(const STRUCTURE *structure);
 void cbFeatureDestroyed(const FEATURE *feature);
 
 /// Returns true and populates flowfieldId if a flowfield exists for the specified target.
-bool tryGetFlowfieldForTarget(uint16_t worldx, uint16_t worldy, PROPULSION_TYPE propulsion);
+bool tryGetFlowfieldForTarget(uint16_t worldx, uint16_t worldy, PROPULSION_TYPE propulsion, int player);
 /// Starts to generate a flowfield for the specified target.
-void calculateFlowfieldAsync(uint16_t worldx, uint16_t worldy, PROPULSION_TYPE propulsion, int player);
+void calculateFlowfieldAsync(uint16_t worldx, uint16_t worldy, PROPULSION_TYPE propulsion, int player, uint8_t radius);
 /// Returns true and populates vector if a directional vector exists for the specified flowfield and target position.
 // bool tryGetFlowfieldVector(unsigned int flowfieldId, uint8_t x, uint8_t y, Vector2f& vector);
 
-bool tryGetFlowfieldDirection(PROPULSION_TYPE prop, const Position &pos, const Vector2i &dest, uint8_t radius, Directions &out);
+// bool tryGetFlowfieldDirection(PROPULSION_TYPE prop, const Position &pos, const Vector2i &dest, uint8_t radius, Directions &out);
+bool tryGetFlowfieldVector(DROID &droid, uint16_t &out);
 
 /// is tile (x, y) passable? We don't need propulsion argument, it's implicit for this particular flowfield
 bool flowfieldIsImpassable(unsigned int flowfieldId, uint8_t x, uint8_t y);
@@ -123,5 +122,9 @@ void ffpathShutdown();
 
 void toggleYellowLines();
 void toggleDrawSquare();
+void toggleVectors();
 void toogleImpassableTiles();
+void exportFlowfieldSelected();
+uint16_t directionToUint16(Directions dir);
+
 #endif // __INCLUDED_SRC_FLOWFIELD_H__

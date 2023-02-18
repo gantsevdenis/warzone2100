@@ -99,6 +99,10 @@ bool fpathIsEquivalentBlocking(PROPULSION_TYPE propulsion1, int player1, FPATH_M
 bool fpathBlockingTile(SDWORD x, SDWORD y, PROPULSION_TYPE propulsion);
 bool fpathDroidBlockingTile(DROID *psDroid, int x, int y, FPATH_MOVETYPE moveType);
 bool fpathBaseBlockingTile(SDWORD x, SDWORD y, PROPULSION_TYPE propulsion, int player, FPATH_MOVETYPE moveType);
+
+/// Is there a structure other than a gate that would open for us? 
+bool fpathImpassableStructure(SDWORD mapx, SDWORD mapy, int player);
+
 bool propulsionRelatedBlock(SDWORD x, SDWORD y, PROPULSION_TYPE propulsion, int mapIndex);
 static inline bool fpathBlockingTile(Vector2i tile, PROPULSION_TYPE propulsion)
 {

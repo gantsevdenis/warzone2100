@@ -2104,7 +2104,7 @@ void mapUpdate()
 	}
 }
 
-bool isBlockTile(int x, int y)
+bool isTerrainBlocked(int x, int y)
 {
 	return propulsionRelatedBlock(x, y, PROPULSION_TYPE_WHEELED, 0);
 }

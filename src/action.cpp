@@ -1,5 +1,5 @@
 /*
-	This file is part of Warzone 2100.
+	this file is part of Warzone 2100.
 	Copyright (C) 1999-2004  Eidos Interactive
 	Copyright (C) 2005-2020  Warzone 2100 Project
 
@@ -1148,7 +1148,7 @@ void actionUpdateDroid(DROID *psDroid)
 				order->type == DORDER_RTR)
 			{
 				// don't move if on hold or firesupport for a sensor tower
-				// also don't move if we're holding position or waiting for repair
+				// also don't move if we're holding position or waiting for repairl
 				psDroid->action = DACTION_NONE; // holding, cancel the order.
 			}
 			//Units attached to commanders are always guarding the commander

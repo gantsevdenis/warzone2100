@@ -117,7 +117,7 @@ WZ_DECL_ALWAYS_INLINE static inline uint8_t blockTile(int x, int y, int slot)
 	return psBlockMap[slot][x + y * mapWidth];
 }
 
-/// Tile is blocked due to impassable terrain
+/// Tile is blocked due to impassable terrain for WHEELS
 /// Different from fpathBaseBlockingTile which also check for structures and features
 bool isTerrainBlocked(int x, int y);
 

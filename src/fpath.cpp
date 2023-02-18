@@ -37,7 +37,7 @@
 #include "map.h"
 #include "multiplay.h"
 #include "astar.h"
-
+#include "move.h"
 #include "fpath.h"
 #include "flowfield.h"
 
@@ -217,6 +217,13 @@ bool propulsionRelatedBlock(SDWORD x, SDWORD y, PROPULSION_TYPE propulsion, int 
 {
 	unsigned unitbits = prop2bits(propulsion);
 	return (blockTile(x, y, MAX(0, mapIndex - MAX_PLAYERS)) & unitbits) != 0; 
+}
+
+bool fpathImpassableStructure(SDWORD mapx, SDWORD mapy, int player)
+{
+	unsigned aux = auxTile(mapx, mapy, player);
+	return (aux & AUXBITS_NONPASSABLE) != 0;
+	
 }
 
 // Check if the map tile at a location blocks a droid
@@ -439,7 +446,9 @@ FPATH_RETVAL fpathDroidRoute(DROID *psDroid, SDWORD tX, SDWORD tY, FPATH_MOVETYP
 	{
 		endPos   = findNonblockingPosition(endPos,   getPropulsionStats(psDroid)->propulsionType, psDroid->player, moveType);
 	}
-	objTrace(psDroid->id, "Want to go to (%d, %d) -> (%d, %d), going (%d, %d) -> (%d, %d)", map_coord(psDroid->pos.x), map_coord(psDroid->pos.y), map_coord(tX), map_coord(tY), map_coord(startPos.x), map_coord(startPos.y), map_coord(endPos.x), map_coord(endPos.y));
+	objTrace(psDroid->id, "Want to go to (%d, %d) -> (%d, %d), going (%d, %d) -> (%d, %d)",
+			map_coord(psDroid->pos.x), map_coord(psDroid->pos.y), map_coord(tX), map_coord(tY),
+			map_coord(startPos.x), map_coord(startPos.y), map_coord(endPos.x), map_coord(endPos.y));
 	switch (psDroid->order.type)
 	{
 	case DORDER_BUILD:
@@ -457,14 +466,15 @@ FPATH_RETVAL fpathDroidRoute(DROID *psDroid, SDWORD tX, SDWORD tY, FPATH_MOVETYP
 	}
 	
 	if (isFlowfieldEnabled()) {
-		if(tryGetFlowfieldForTarget(tX, tY, psPropStats->propulsionType))
+		// tX tY are world coordinates
+		if (tryGetFlowfieldForTarget(tX, tY, psPropStats->propulsionType, psDroid->player))
 		{
 			psDroid->sMove.pathIndex = 0;
 			psDroid->sMove.Status = MOVENAVIGATE;
 			psDroid->sMove.asPath = { { tX, tY } };
 			return FPR_OK;
 		} else {
-			calculateFlowfieldAsync(tX, tY, psPropStats->propulsionType, psDroid->player);
+			calculateFlowfieldAsync(tX, tY, psPropStats->propulsionType, psDroid->player, moveObjRadius(psDroid));
 			return FPR_WAIT;
 		}
 	}

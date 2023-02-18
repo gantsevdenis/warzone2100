@@ -202,6 +202,8 @@ void kf_ToggleFlowField();
 void kf_ToggleDraw();
 void kf_ToggleYellowLines();
 void kf_ToggleImpassableTiles();
+void kf_ExportFlowfield();
+void kf_ToggleVectors();
 void enableGodMode();
 
 void keybindShutdown();

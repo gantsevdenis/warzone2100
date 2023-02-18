@@ -95,6 +95,8 @@ static CHEAT_ENTRY cheatCodes[] =
 	{"tsq", kf_ToggleDraw},
 	{"tyl", kf_ToggleYellowLines},
 	{"tit", kf_ToggleImpassableTiles},
+	{"tv", kf_ToggleVectors},
+	{"exp", kf_ExportFlowfield},
 
 };
 
