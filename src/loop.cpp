@@ -59,6 +59,7 @@
 
 #include "multiplay.h" //ajl
 #include "levels.h"
+#include "src/move.h"
 #include "visibility.h"
 #include "multimenu.h"
 #include "intelmap.h"
@@ -537,7 +538,8 @@ static void gameStateUpdate()
 
 	// update the command droids
 	cmdDroidUpdate();
-
+	
+	beforeUpdateDroid();
 	for (unsigned i = 0; i < MAX_PLAYERS; i++)
 	{
 		//update the current power available for a player

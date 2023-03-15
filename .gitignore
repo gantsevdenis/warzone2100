@@ -329,3 +329,5 @@ tags
 *.txt
 
 comments*
+# emacs save files
+\#*

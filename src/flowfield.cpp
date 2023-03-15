@@ -93,9 +93,6 @@ static std::unordered_set<unsigned> seenStructures;
 	#define DEFAULT_EXTENT_Y 1
 #endif
 
-#define FF_TILE_SIZE 128
-#define FF_GRID_1048576 1048576
-
 void flowfieldEnable()
 {
 
@@ -110,70 +107,6 @@ bool isFlowfieldEnabled()
 void flowfieldToggle()
 {
 	flowfieldEnabled = !flowfieldEnabled;
-}
-
-#define TILE_FACTOR  (mapWidth)
-// number of world units on X axis of this Map
-#define WORLD_FACTOR (mapWidth * FF_TILE_SIZE)
-// number of Cells on X axis on this Map
-
-#define CELL_X_LEN (mapWidth *  FF_TILE_SIZE / FF_UNIT) 
-#define CELL_Y_LEN (mapHeight * FF_TILE_SIZE / FF_UNIT)
-#define CELL_AREA  CELL_X_LEN * CELL_Y_LEN
-#define IS_BETWEEN(X, LOW, HIGH) (LOW) <= (X) && (X) < (HIGH)
-static inline uint16_t world_to_cell(uint16_t world, uint16_t &cell)
-{
-	cell = world / FF_UNIT;
-	return world % FF_UNIT;
-}
-
-static inline void world_to_cell(uint16_t worldx, uint16_t worldy, uint16_t &cellx, uint16_t &celly)
-{
-	cellx = worldx / FF_UNIT;
-	celly = worldy / FF_UNIT;
-}
-
-/// Gives upper left world-coordinate
-static inline void cell_to_world(uint16_t cellx, uint16_t celly, uint16_t &worldx, uint16_t &worldy)
-{
-	worldx = cellx * FF_UNIT;
-	worldy = celly * FF_UNIT;
-}
-
-
-static inline void tile_to_cell(uint8_t mapx, uint8_t mapy, uint16_t &cellx, uint16_t &celly)
-{
-	cellx = mapx * FF_TILE_SIZE / FF_UNIT;
-	celly = mapy * FF_TILE_SIZE / FF_UNIT;
-}
-
-static inline uint32_t world_2Dto1D(uint16_t worldx, uint16_t worldy)
-{
-	return worldy * WORLD_FACTOR + worldx;
-}
-
-/*static inline void world_1Dto2D(uint32_t idx, uint16_t &worldx, uint16_t &worldy)
-{
-	worldx = idx % WORLD_FACTOR;
-	worldy = idx / WORLD_FACTOR;
-}*/
-
-static inline uint32_t cells_2Dto1D(int cellx, int celly)
-{
-	// Note: this assumes we have 1 Flowfield per entire Map.
-	if (cellx < 0 || celly < 0)
-	{
-		char what[128] = {0};
-		sprintf(what, "out of range when addressing cells array: cellx=%i celly=%i", cellx, celly);
-		throw std::out_of_range(what);
-	}
-	return celly * CELL_X_LEN + cellx;
-}
-
-static inline void cells_1Dto2D(uint32_t idx, uint16_t &cellx, uint16_t &celly)
-{
-	cellx = idx % CELL_X_LEN;
-	celly = (idx - cellx) / CELL_X_LEN;
 }
 
 /// Given a tile, give back subcell indices.
@@ -197,14 +130,6 @@ static void cells_of_tile(uint16_t worldx, uint16_t worldy, std::vector<uint32_t
 	}
 }
 
-// ignore the first one when iterating!
-// 8 neighbours for each cell
-static const int neighbors[DIR_TO_VEC_SIZE][2] = {
-	{-0xDEAD, -0xDEAD}, // DIR_NONE
-	{-1, -1}, {0, -1}, {+1, -1},
-	{-1,  0},          {+1,  0},
-	{-1, +1}, {0, +1}, {+1, +1}
-};
 /// For each X-tile of the map, holds the ID of a structure on it (if any).
 std::array<const STRUCTURE*, 256> structuresPositions = {nullptr};
 
@@ -360,7 +285,7 @@ static int ffpathThreadFunc(void *)
 			auto end = std::chrono::high_resolution_clock::now();
 			auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 			wzMutexLock(ffpathMutex);
-			debug (LOG_FLOWFIELD, "processing took %li, erasing %i from currently active reuquests", duration.count(), cell_goal);
+			// debug (LOG_FLOWFIELD, "processing took %li, erasing %i from currently active requests", duration.count(), cell_goal);
 			flowfieldCurrentlyActiveRequests[propulsionIdx2[request.propulsion]].erase(cell_goal);
 		}
 	}
@@ -621,11 +546,11 @@ public:
 	}
 	
 	// calculate closest point
-	static inline uint16_t _closest (uint16_t at, uint16_t goal, uint16_t extent)
+	static inline uint16_t _closest (uint16_t to, uint16_t from, uint16_t from_extent)
 	{
-		int16_t dist = at - goal;
-		if (dist >= 0 && dist < extent) { return at; }
-		else { return dist < 0 ? goal : ((0xFFFF) & (goal + extent - 1)); }
+		int16_t dist = to - from;
+		if (dist >= 0 && dist < from_extent) { return to; }
+		else { return dist < 0 ? from : ((0xFFFF) & (from + from_extent - 1)); }
 	}
 
 	/// Calculates distance to the closest tile cell of Goal (which may be several cells wide)
@@ -773,11 +698,11 @@ public:
 		integrateCosts();
 		auto end = std::chrono::high_resolution_clock::now();
 		auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-		debug (LOG_FLOWFIELD, "cost integration took %lu", duration.count());
+		//debug (LOG_FLOWFIELD, "cost integration took %lu", duration.count());
 #ifdef DEBUG
 		std::stringstream ss;
 		ss << std::this_thread::get_id();
-		debug (LOG_FLOWFIELD, "calculating flows... thread %s", ss.str().c_str());
+		// debug (LOG_FLOWFIELD, "calculating flows... thread %s", ss.str().c_str());
 		// we can't have all nodes equal to zero, that makes no sense
 		bool all_zero = true;
 		for (auto it = 0; it < integrationField.size(); it++)
@@ -802,9 +727,9 @@ public:
 			// we don't care about DIR_NONE		
 			for (int neighb = (int) Directions::DIR_0; neighb < DIR_TO_VEC_SIZE; neighb++)
 			{
-				if (!(IS_BETWEEN(cellx + neighbors[neighb][0], 0, CELL_X_LEN))) continue;
-				if (!(IS_BETWEEN(celly + neighbors[neighb][1], 0, CELL_Y_LEN))) continue;
-				const auto neighb_cellIdx = cells_2Dto1D (cellx + neighbors[neighb][0], celly + neighbors[neighb][1]);
+				if (!(IS_BETWEEN(cellx + dir_neighbors[neighb][0], 0, CELL_X_LEN))) continue;
+				if (!(IS_BETWEEN(celly + dir_neighbors[neighb][1], 0, CELL_Y_LEN))) continue;
+				const auto neighb_cellIdx = cells_2Dto1D (cellx + dir_neighbors[neighb][0], celly + dir_neighbors[neighb][1]);
 				// substract 1, because Directions::DIR_0 is 1
 				costs[neighb - 1] = integrationField.at(neighb_cellIdx);
 			}
@@ -909,8 +834,9 @@ private:
 		{
 			integrationField.at(node.index) = integrationCost;
 			Vector2i dirGoal;
-			#if 1
+			#if 0
 			// LOS computation is very slow and easily adds 1 second on debug build
+			// TODO compute faster! or remove
 			hasLOS.at(node.index) = false;// has_los;
 			#else
 			const bool has_los = calculateLOS(integrationField, node.index, cellx, celly, dirGoal);
@@ -923,13 +849,12 @@ private:
 			
 			// only iterate over 4 neighbours, not 8
 			// because otherwise diagonals in integration field arent yet initialized (they are still IMPASSABLE, and would block LOS)
-			constexpr Directions _neighbours[] = {Directions::DIR_1, Directions::DIR_3, Directions::DIR_4, Directions::DIR_6};
-			for (auto &neighb_it : _neighbours)
+			for (auto &neighb_it : dir_straight)
 			{
 				int neighbx, neighby;
 				int neighb = (int) neighb_it;
-				neighbx = cellx + neighbors[neighb][0];
-				neighby = celly + neighbors[neighb][1];
+				neighbx = cellx + dir_neighbors[neighb][0];
+				neighby = celly + dir_neighbors[neighb][1];
 				if (!(IS_BETWEEN(neighbx, 0, CELL_X_LEN))) continue;
 				if (!(IS_BETWEEN(neighby, 0, CELL_Y_LEN))) continue;
 				openSet.push(Node { integrationCost, cells_2Dto1D(neighbx, neighby) });
@@ -1042,9 +967,9 @@ void processFlowfield(FLOWFIELDREQUEST request)
 		std::lock_guard<std::mutex> lock(flowfieldMutex);
 		// store the result, this will be checked by fpath.cpp
 		// NOTE: we are storing Goal in cell units
-		if (request.player == 0)
+		/*if (request.player == 0)
 			debug (LOG_FLOWFIELD, "inserting %i (cellx=%i celly=%i) into results, results size=%li", cell_goal,
-		request.cell_goalX, request.cell_goalY, results->size());
+		request.cell_goalX, request.cell_goalY, results->size());*/
 		results->insert(std::make_pair(cell_goal, flowfield));
 	}
 }
@@ -1172,7 +1097,7 @@ void initCostFields()
 #ifdef DEBUG
 	debug (LOG_FLOWFIELD, "Cell Area=%i MapWidth=%i MapHeight=%i, CELL_X_LEN=%i CELL_Y_LEN=%i",
 	       CELL_AREA, mapWidth, mapHeight, CELL_X_LEN, CELL_Y_LEN);
-	Vector2i z;
+	Vector2i z, w;
 	z = Vector2i{15, 8} + Vector2i {-1, 8};
 	Vector2i _11 = {-1, 1};
 	iNorm (_11);
@@ -1208,6 +1133,34 @@ void initCostFields()
 	debug (LOG_FLOWFIELD, "iCos({0, 1})=%i",  iCos(iAtan2({0, 1})));
 	debug (LOG_FLOWFIELD, "iSin({0, 0})=%i",  iSin(iAtan2({0, 0})));
 	debug (LOG_FLOWFIELD, "iCos({0, 0})=%i",  iCos(iAtan2({0, 0})));
+	debug (LOG_FLOWFIELD, "iSin({-1, 1})=%i",  iSin(iAtan2({-1, 1})));
+	debug (LOG_FLOWFIELD, "iCos({-1, 1})=%i",  iCos(iAtan2({-1, 1})));
+	Vector2i slide;
+	bool r = false;
+	r = moveCalcSlideVector(-1, -1, 1, 1, slide);
+	debug (LOG_FLOWFIELD, "-1, -1, 1, 1: %i %i %i", r, slide.x, slide.y);
+	r = moveCalcSlideVector(-1, -1, 1, 0, slide);
+	debug (LOG_FLOWFIELD, "-1, -1, 1, 0: %i %i %i", r, slide.x, slide.y);
+	r = moveCalcSlideVector(-15000, -15000, 0, 15000, slide);
+	debug (LOG_FLOWFIELD, "-1, -1, 0, 1: %i %i %i", r, slide.x, slide.y);
+	r = moveCalcSlideVector(-1, -1, -1, -1, slide);
+	debug (LOG_FLOWFIELD, "-1, -1, -1, -1: %i %i %i", r, slide.x, slide.y);
+
+	r = moveCalcSlideVector(-1, 0, 1, 1, slide);
+	debug (LOG_FLOWFIELD, "-1, 0, 1, 1: %i %i %i", r, slide.x, slide.y);
+	r = moveCalcSlideVector(-1, 0, 1, 0, slide);
+	debug (LOG_FLOWFIELD, "-1, 0, 1, 0: %i %i %i", r, slide.x, slide.y);
+	r = moveCalcSlideVector(-1, 0, 0, 1, slide);
+	debug (LOG_FLOWFIELD, "-1, 0, 0, 1: %i %i %i", r, slide.x, slide.y);
+	r = moveCalcSlideVector(-1, 0, 0, -1, slide);
+	debug (LOG_FLOWFIELD, "-1, 0, 0, -1: %i %i %i", r, slide.x, slide.y);
+
+	w = Vector2i {1, 1};
+	int32_t ratio = (int64_t)65536 * 60 / 100;
+	auto wr = w * ratio;
+	int32_t scaled = (int64_t)100 * 39321 / 65536;
+	Vector2i scaledV ={(int64_t) 100 * 39321 / 65536, (int64_t) 100 * 39321 / 65536};
+	debug (LOG_FLOWFIELD, "scaling: %i, %i %i, %i, %i %i", ratio, wr.x, wr.y, scaled, scaledV.x, scaledV.y);
 	debug (LOG_FLOWFIELD, "init cost field done.");
 #endif
 }
@@ -1252,7 +1205,7 @@ static void drawSquare2 (const glm::mat4 &mvp, int sidelen, int startX, int star
 static void (*curDraw) (const glm::mat4&, int, int, int, int, PIELIGHT) = &drawSquare2;
 static bool isOne = false;
 static bool drawYellowLines = false;
-static bool drawVectors = true;
+static bool drawVectors = false;
 
 void toggleYellowLines() { drawYellowLines = !drawYellowLines; }
 
@@ -1543,6 +1496,8 @@ static void drawUnitDebugInfo (const DROID *psDroid, const glm::mat4 &mvp)
 	auto startY = psDroid->pos.y;
 	uint16_t cell_startx, cell_starty;
 	world_to_cell(startX, startY, cell_startx, cell_starty);
+	//cell_startx = startX / FF_UNIT;
+	//cell_starty = startY / FF_UNIT;
 	auto target = (psDroid->pos.xy() - psDroid->sMove.target);
 	auto destination = (psDroid->pos.xy() - psDroid->sMove.destination);
 	auto height = map_TileHeight(map_coord(startX), map_coord(startY)) + 10;
@@ -1651,7 +1606,7 @@ static void drawUnitDebugInfo (const DROID *psDroid, const glm::mat4 &mvp)
 	uint16_t nwx, nwy;
 	cell_to_world(cell_startx, cell_starty, nwx, nwy);
 	curDraw (mvp, collisionRadius, nwx, nwy, height, WZCOL_RED);
-	debugDrawImpassableCell(mvp, cell_startx, cell_starty, height);
+	// debugDrawImpassableCell(mvp, cell_startx, cell_starty, height);
 
 	memset(tmpBuff, 0, 64);
 	uint16_t cells_radius;

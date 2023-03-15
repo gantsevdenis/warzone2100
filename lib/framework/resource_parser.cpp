@@ -23,6 +23,7 @@
 #endif
 #if defined(__clang__)
 	#pragma clang diagnostic ignored "-Wshorten-64-to-32"
+	#pragma clang diagnostic ignored "-Wimplicit-int-conversion"
 #endif
 
 /* All symbols defined below should begin with yy or YY, to avoid

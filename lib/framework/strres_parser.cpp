@@ -58,7 +58,9 @@
 #define yydebug         strres_debug
 #define yynerrs         strres_nerrs
 
-
+#if defined(__clang__)
+	#pragma clang diagnostic ignored "-Wimplicit-int-conversion"
+#endif
 /* Copy the first part of user declarations.  */
 
 /* Line 268 of yacc.c  */

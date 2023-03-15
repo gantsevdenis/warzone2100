@@ -24,6 +24,7 @@
  *
  */
 
+#include <cstdint>
 #if defined( _MSC_VER )
 	#pragma warning( disable : 4244 ) // warning C4244: conversion from 'type1' to 'type2', possible loss of data // FIXME?
 #endif
@@ -58,12 +59,12 @@ bool trigInitialise(void)
 	STATIC_ASSERT(sizeof(trigSinTable) / sizeof(*trigSinTable) == 0x4001);
 	for (i = 0; i != 0x4001; ++i)
 	{
-		trigSinTable[i] = (int)(0x10000 * sin(i * (M_PI / 0x8000)) + 0.5) - !!i; // -!!i = subtract 1, unless i == 0.
+		trigSinTable[i] = (uint16_t)(0x10000 * sin(i * (M_PI / 0x8000)) + 0.5) - !!i; // -!!i = subtract 1, unless i == 0.
 	}
 	STATIC_ASSERT(sizeof(trigAtanTable) / sizeof(*trigAtanTable) == 0x2001);
 	for (i = 0; i != 0x2001; ++i)
 	{
-		trigAtanTable[i] = (int)(0x8000 / M_PI * atan((double)i / 0x2000) + 0.5);
+		trigAtanTable[i] = (uint16_t)(0x8000 / M_PI * atan((double)i / 0x2000) + 0.5);
 	}
 
 	// Check tables are correct.
@@ -123,12 +124,12 @@ int32_t iCosR(uint16_t a, int32_t r)
 
 int32_t iSinSR(int32_t a, int32_t s, int32_t r)
 {
-	return static_cast<int32_t>(((int64_t)r * iSin(((int64_t)a << 16) / s)) / 65536);
+	return static_cast<int32_t>(((int64_t)r * iSin(0xffff & ((int64_t)a << 16) / s)) / 65536);
 }
 
 int32_t iCosSR(int32_t a, int32_t s, int32_t r)
 {
-	return static_cast<int32_t>(((int64_t)r * iCos(((int64_t)a << 16) / s)) / 65536);
+	return static_cast<int32_t>(((int64_t)r * iCos(0xffff & ((int64_t)a << 16) / s)) / 65536);
 }
 
 uint16_t iAtan2(int32_t s, int32_t c)

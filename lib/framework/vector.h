@@ -20,6 +20,7 @@
 #ifndef VECTOR_H
 #define VECTOR_H
 
+#include <cstdint>
 #if defined(WZ_CC_MSVC)
 #pragma warning( disable : 4201)
 #endif
@@ -38,6 +39,7 @@ using Vector3i = glm::ivec3;
 using Vector2i = glm::ivec2;
 using Vector2f = glm::vec2;
 using Vector3f = glm::vec3;
+
 struct Rotation
 {
 	Rotation()
@@ -55,6 +57,18 @@ typedef Vector3i Position;  ///< Map position in world coordinates
 static inline Vector3i toVector(Rotation const &r)
 {
 	return Vector3i(r.direction, r.pitch, r.roll);
+}
+
+static inline void multiply (Vector2i &v, int n)
+{
+	v.x *= n;
+	v.y *= n;
+}
+
+static inline void invert (Vector2i &v)
+{
+	v.x = (-v.x);
+	v.y = (-v.y);
 }
 
 // vector * vector -> scalar
@@ -85,9 +99,17 @@ static inline WZ_DECL_PURE int iHypot(Vector2i const &a)
 {
 	return iHypot(a.x, a.y);
 }
+
 static inline WZ_DECL_PURE int iHypot(Vector3i const &a)
 {
 	return iHypot3(a.x, a.y, a.z);
+}
+
+static inline void iNorm(Vector2i &v)
+{
+	const auto hypot = iHypot(v.x, v.y);
+	v.x /= hypot;
+	v.y /= hypot;
 }
 
 /*!
@@ -150,6 +172,19 @@ static inline bool WZ_DECL_PURE Vector3i_InSphere(Vector3i v, Vector3i c, unsign
 static inline uint16_t snapDirection(uint16_t direction)
 {
 	return (direction + 0x2000) & 0xC000;
+}
+
+static inline uint16_t snapDirection8(uint16_t direction)
+{
+	if (direction < 0x1000) return 0;
+	if (direction < 0x3000) return 0x2000;
+	if (direction < 0x5000) return 0x4000;
+	if (direction < 0x7000) return 0x6000;
+	if (direction < 0x9000) return 0x8000;
+	if (direction < 0xB000) return 0xA000;
+	if (direction < 0xD000) return 0xC000;
+	if (direction < 0xF000) return 0xE000;
+	return 0;
 }
 
 #endif // VECTOR_H

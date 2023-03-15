@@ -27,6 +27,7 @@
 
 #include "lib/framework/trig.h"
 #include "lib/framework/math_ext.h"
+#include "lib/framework/vector.h"
 #include "lib/gamelib/gtime.h"
 #include "lib/netplay/netplay.h"
 #include "lib/sound/audio.h"
@@ -37,6 +38,10 @@
 #include "move.h"
 
 #include "objects.h"
+#include "src/basedef.h"
+#include "src/droid.h"
+#include "src/droiddef.h"
+#include "src/statsdef.h"
 #include "visibility.h"
 #include "map.h"
 #include "fpath.h"
@@ -56,6 +61,9 @@
 #include "random.h"
 #include "mission.h"
 #include "qtscript.h"
+#include "wzmaplib/map.h"
+#include <cstdint>
+#include <glm/fwd.hpp>
 
 /* max and min vtol heights above terrain */
 #define	VTOL_HEIGHT_MIN				250
@@ -539,13 +547,43 @@ static bool moveNextTarget(DROID *psDroid)
 	return true;
 }
 
+/// Returns cell units. Nb of cells this droid spans
+uint8_t moveDroidSizeExtent (const DROID *psDroid)
+{
+	if (psDroid->droidType == DROID_PERSON)
+	{
+		return PersonRadius;
+	}
+	else if (cyborgDroid(psDroid))
+	{
+		return CyborgRadius;
+	}
+	const BODY_STATS *psBdyStats = &asBodyStats[psDroid->asBits[COMP_BODY]];
+	static_assert(SIZE_NUM == 4, "Update this when adding new Body Sizes!");
+	switch (psBdyStats->size)
+	{
+		case SIZE_LIGHT: return SmallRadius;
+		case SIZE_MEDIUM: return MediumRadius;
+		case SIZE_HEAVY: return LargeRadius;
+		case SIZE_SUPER_HEAVY: return ExtraLargeRadius;
+		// unreachable
+		default: exit(1);
+	}
+}
+
 // Watermelon:fix these magic number...the collision radius should be based on pie imd radius not some static int's...
 // Note: tile size is 128
 // static   int mvPersRad = 16, mvCybRad = 32, mvSmRad = 32, mvMedRad = 64, mvLgRad = 64, mvSuperHeavy = 128;
 // static	int mvPersRad = 20, mvCybRad = 30, mvSmRad = 40, mvMedRad = 50, mvLgRad = 60;
+/// Get radius (world units) of droid for collision calculations
+SDWORD moveDroidRadius (const DROID *psDroid)
+{
+	return moveDroidSizeExtent(psDroid) * FF_UNIT;
+}
 
 
-// Get the radius of a base object for collision
+
+/// Get the radius, in world units, of a base object for collision
 SDWORD moveObjRadius(const BASE_OBJECT *psObj)
 {
 	switch (psObj->type)
@@ -553,36 +591,7 @@ SDWORD moveObjRadius(const BASE_OBJECT *psObj)
 	case OBJ_DROID:
 		{
 			const DROID *psDroid = (const DROID *)psObj;
-			if (psDroid->droidType == DROID_PERSON)
-			{
-				return PersonRadius * FF_UNIT;
-			}
-			else if (cyborgDroid(psDroid))
-			{
-				return CyborgRadius * FF_UNIT;
-			}
-			else
-			{
-				const BODY_STATS *psBdyStats = &asBodyStats[psDroid->asBits[COMP_BODY]];
-				switch (psBdyStats->size)
-				{
-				case SIZE_LIGHT:
-					return SmallRadius * FF_UNIT;
-
-				case SIZE_MEDIUM:
-					return MediumRadius * FF_UNIT;
-
-				case SIZE_HEAVY:
-					return LargeRadius * FF_UNIT;
-
-				case SIZE_SUPER_HEAVY:
-					return ExtraLargeRadius * FF_UNIT;
-
-				default:
-					return psDroid->sDisplay.imd->radius;
-				}
-			}
-			break;
+			return moveDroidRadius(psDroid);
 		}
 	case OBJ_STRUCTURE:
 		return psObj->sDisplay.imd->radius / 2;
@@ -708,25 +717,112 @@ static bool moveBlocked(DROID *psDroid)
 	return false;
 }
 
+// Droids closer than this (world coordinates) will be repelled with maximum force to avoid stepping on each other
+const static int32_t D_1 = 4;
+constexpr static int32_t D_1_SQ = D_1 * D_1;
+// Droids between D_1 and D_2 will be repelled proportionnaly to their distance
+// Droids further than D_2 will not be repelled
+const static int32_t D_2 = FF_UNIT*2;
+const static int32_t D_2_SQ = D_2 * D_2;
 
-// Calculate the actual avoidance vetor to slide around
-static void moveCalcSlideVector(DROID *psDroid, int32_t objX, int32_t objY, int32_t *pMx, int32_t *pMy)
+/// Calculate the actual avoidance vector to avoid obstacle
+// should we take time-adjusted position?
+#if 1
+
+/// Adjusts droid's velocity vector wrt other encountered droids (avoid overlapping), maybe many of them.
+/// Only modifies directions = leaves speed unchanged
+///
+/// Allowed: map of allowed directions
+void droidHandleObstacle (DROID *psDroid, uint32_t adjx, uint32_t adjy, uint8_t allowed, int32_t *outx, int32_t *outy)
+{
+//	PROPULSION_STATS *propStats = asPropulsionStats + psDroid->asBits[COMP_PROPULSION];
+//	int selfMaxSpeed = propStats->maxSpeed;
+	uint16_t wantedDir = snapDirection8(psDroid->sMove.moveDir);
+	uint16_t possibleDir = allowed & wantedDir;
+	if (psDroid->player == 0) debug (LOG_FLOWFIELD, "handle obstacle %x %x %x", wantedDir, allowed, possibleDir);
+	if (possibleDir == 0)
+	{
+		if (psDroid->player == 0) debug (LOG_FLOWFIELD, "nowhere to move %i", psDroid->id);
+		psDroid->sMove.moveDir = 0; // ?? to modify speed?
+	}
+	psDroid->sMove.moveDir = possibleDir;
+	
+}
+
+void droidRepulse (const DROID *psDroid, uint32_t adjx, uint32_t adjy, const BASE_OBJECT *psOther, int32_t *outx, int32_t *outy)
+{
+	// where center of sphere? Assume already in center
+	const auto obsR = moveObjRadius(psOther); // world units
+	const auto obsR_sq = obsR * obsR;
+	const auto selfR = moveDroidRadius(psDroid); // world units
+	const auto selfR_sq = selfR * selfR;
+	const auto otherX = psOther->pos.x;
+	const auto otherY = psOther->pos.y;
+	// Calculate the vector to the obstruction
+	const int32_t vobstX = otherX - adjx;
+	const int32_t vobstY = otherY - adjy;
+	const auto dist_sq = vobstX * vobstX + vobstY * vobstY;
+	int ratio = 0;
+	PROPULSION_STATS *propStats = asPropulsionStats + psDroid->asBits[COMP_PROPULSION];
+	int selfMaxSpeed = propStats->maxSpeed;
+	const auto angle = iAtan2({vobstX, vobstY});
+	const auto projx = iSin(angle);
+	const auto projy = iCos(angle);
+	const auto total_radius_sq = obsR_sq + selfR_sq;
+	Vector2i selfVel = iSinCosR(psDroid->sMove.moveDir, selfMaxSpeed);
+	const auto velcx = iSin(psDroid->sMove.moveDir);
+	const auto velcy = iCos(psDroid->sMove.moveDir);
+	// Vector2i selfVelocity = iSinCosR(angle, selfMaxSpeed);
+	// get the repulsion vector
+	if (dist_sq < total_radius_sq)
+	{
+		// in floating: ratio = 1.0f
+		//const uint32_t repulsion_dx = (int64_t)ratiox * selfVel.x  / 65536;
+		//const uint32_t repulsion_dy = (int64_t)ratioy * selfVel.y  / 65536;
+		*outx = 0; //-selfVel.x; // should go down when projx is low
+		*outy = 0; //-selfVel.y; // should go down when projy is low
+		// TODO hum move droid out, even if it's not moving currently
+		if (psDroid->player == 0)
+		debug (LOG_FLOWFIELD, "max repulsion: %i %i, adjxy %i %i, other %i %i, proj %i %i, velcxy %i %i", *outx, *outy, adjx, adjy, otherX, otherY,
+			projx, projy, velcx, velcy);
+
+	}
+	#if 0
+	else if (dist_sq < (obsR_sq + D_2_SQ))
+	{
+		// calculate linear interpolation
+		ratio = (int64_t)65536 * (dist_sq - selfR_sq) / D_2_SQ;
+		ratio = 65536 - ratio;
+		// scale to angle between ourself and obstacle
+		const auto ratiox = (int64_t)ratio * projx / 65536;
+		const auto ratioy = (int64_t)ratio * projy / 65536;
+		const uint32_t repulsion_dx = (int64_t)ratiox * selfVel.x  / 65536;
+		const uint32_t repulsion_dy = (int64_t)ratioy * selfVel.y  / 65536;
+		*outx = selfVel.x - repulsion_dx;
+		*outy = selfVel.y - repulsion_dy;
+		// repulsion: 5052 4781, rx ry 20558 -42700, adjxy 4964 13790, other 4925 13871
+		if (psDroid->player == 0)
+			debug (LOG_FLOWFIELD, "repulsion: %i %i, rx ry %li %li, adjxy %i %i, other %i %i", *outx, *outy, ratiox, ratioy, adjx, adjy, otherX, otherY);
+	}
+	#endif
+	// else repulsion is zero. nothing to do
+	if (psDroid->player == 0) debug (LOG_FLOWFIELD, "distance to obstacle was: %i<%i?=%i, (obsR_sq + D_2_SQ)=%i, otherxy %i %i",
+	dist_sq, obsR_sq, dist_sq < obsR_sq, (obsR_sq + D_2_SQ), otherX, otherY);
+}
+#endif
+
+bool moveCalcSlideVector(int32_t obstX, int32_t obstY, int32_t mx, int32_t my, Vector2i &out)
 {
 	int32_t dirX, dirY, dirMagSq, dotRes;
-	const int32_t mx = *pMx;
-	const int32_t my = *pMy;
-	// Calculate the vector to the obstruction
-	const int32_t obstX = psDroid->pos.x - objX;
-	const int32_t obstY = psDroid->pos.y - objY;
-
 	// if the target dir is the same, don't need to slide
 	if (obstX * mx + obstY * my >= 0)
 	{
-		return;
+		return false;
 	}
 
 	// Choose the tangent vector to this on the same side as the target
 	dotRes = obstY * mx - obstX * my;
+	#if 0
 	if (dotRes >= 0)
 	{
 		dirX = obstY;
@@ -738,11 +834,44 @@ static void moveCalcSlideVector(DROID *psDroid, int32_t objX, int32_t objY, int3
 		dirY = obstX;
 		dotRes = -dotRes;
 	}
+	#else
+	const auto coef = dotRes >= 0 ? 1 : -1;
+	dirX = coef * obstY;
+	dirY = -coef * obstX;
+	dotRes = coef * dotRes;	
+	#endif
 	dirMagSq = MAX(1, dirX * dirX + dirY * dirY);
 
 	// Calculate the component of the movement in the direction of the tangent vector
-	*pMx = (int64_t)dirX * dotRes / dirMagSq;
-	*pMy = (int64_t)dirY * dotRes / dirMagSq;
+	out.x = (int64_t)dirX * dotRes / dirMagSq;
+	out.y = (int64_t)dirY * dotRes / dirMagSq;
+	return true;
+}
+
+/// Calculate the actual avoidance vector to slide around
+static void moveCalcSlideVector(DROID *psDroid, int32_t objX, int32_t objY, int32_t *pMx, int32_t *pMy)
+{
+	// Calculate the vector to the obstruction
+	const int32_t obstX = psDroid->pos.x - objX;
+	const int32_t obstY = psDroid->pos.y - objY;
+	Vector2i out;
+	const auto old_adjx = gameTimeAdjustedAverage(*pMx, EXTRA_PRECISION);
+	const auto old_adjy = gameTimeAdjustedAverage(*pMy, EXTRA_PRECISION);
+	const bool r = moveCalcSlideVector(obstX, obstY,  *pMx, *pMy, out);
+	if (r)
+	{
+		const auto new_adjx = gameTimeAdjustedAverage(out.x, EXTRA_PRECISION);
+		const auto new_adjy = gameTimeAdjustedAverage(out.y, EXTRA_PRECISION);
+		if (psDroid->player == 0) debug (LOG_FLOWFIELD,
+			"modified pmx pmy: new %i %i (%i %i), old %i %i (%i %i), obs %i %i",
+			new_adjx, new_adjy, out.x, out.y, old_adjx, old_adjy, *pMx, *pMy, obstX, obstY);
+		*pMx = out.x;
+		*pMy = out.y;
+	}
+	else
+	{
+
+	}
 }
 
 
@@ -1028,13 +1157,175 @@ static void moveCalcBlockingSlide(DROID *psDroid, int32_t *pmx, int32_t *pmy, ui
 	CHECK_DROID(psDroid);
 }
 
+/// Returns true of collision spheres do intersect
+static bool collisionDroid_original (const DROID *psDroid, uint32_t adjx, uint32_t adjy, const DROID *psOther)
+{
+	#if 0
+	// FIXME: looks like a hack, caller must handle it
+	if (!bLegs && (psOther)->droidType == DROID_PERSON)
+	{
+		// everything else doesn't avoid people
+		return false;
+	}
+	
+	if (psOther->player == psDroid->player
+	    && psDroid->lastFrustratedTime > 0
+	    && gameTime - psDroid->lastFrustratedTime < FRUSTRATED_TIME)
+	{
+		return false; // clip straight through own units when sufficient frustrated -- using cheat codes!
+	}
+	#endif
+	// TODO: this doesn't need to be called N times for each iteration
+	const auto droidR = moveObjRadius(psDroid);
+	const auto objR = moveObjRadius(psOther);
+	auto rad = droidR + objR;
+	auto radSq = rad * rad;
+	auto xdiff = adjx - psOther->pos.x;
+	auto ydiff = adjy - psOther->pos.y;
+	auto distSq = xdiff * xdiff + ydiff * ydiff;
+	return (radSq > distSq);
+}
 
-// see if a droid has run into another droid
-// Only consider stationery droids
+bool static cells_droidIntersects (uint16_t self_0x, uint16_t self_0y, uint16_t self_extent, uint16_t other_0x, uint16_t other_0y, uint16_t other_extent)
+{
+	const auto self_endx = self_0x + self_extent - 1;
+	const auto self_endy = self_0y + self_extent - 1;
+	const auto other_endx = other_0x + other_extent - 1;
+	const auto other_endy = other_0y + other_extent - 1;
+	bool x_intersects = ((self_0x <= other_endx) && (other_endx <= self_endx));
+	bool y_intersects = ((self_0y <= other_endy) && (other_endy <= self_endy));
+	return x_intersects && y_intersects;	
+}
+
+/// Adjx Adjy are in world coordinates.
+/// Assumes droids are propulsion-comparable (air vs ground)
+bool static droidIntersects (const DROID *psDroid, uint32_t adjx, uint32_t adjy, const DROID *psOther)
+{
+	const auto self_extent =  moveDroidSizeExtent (psDroid); // cells units
+	const auto other_extent = moveDroidSizeExtent (psOther); // cells units
+	uint16_t self_cellx, self_celly, other_cellx, other_celly;
+	world_to_cell(adjx, adjy, self_cellx, self_celly);
+	world_to_cell(psOther->pos.x, psOther->pos.y, other_cellx, other_celly);
+	const bool out = cells_droidIntersects(self_cellx, self_celly, self_extent, other_cellx, other_celly, other_extent);
+	if (out && psDroid->player == 0)
+	debug (LOG_FLOWFIELD, "collision %i VS %i: (%i %i, %i) (%i %i, %i)", psDroid->id, psOther->id,
+		self_cellx, self_celly, self_extent,
+		other_cellx, other_celly, other_extent);
+	return out;
+}
+
+/// New (stricter) collision detection. Returns true only are actually stepping on each other
+/// FIXME Bad idea, collision is when adjacent cells are touching, no overlapping needed
+/// Adjx Adjy are in world coordinates
+static bool collisionDroid_overlap (const DROID *psDroid, uint32_t adjx, uint32_t adjy, const DROID *psOther)
+{
+	const auto droidR = moveObjRadius(psDroid);
+	const auto objR = moveObjRadius(psOther);
+	if (isTransporter(psOther))
+	{
+		// ignore transporters
+		return false;
+	}
+	if ((!isFlying(psDroid) && isFlying(psOther) && psOther->pos.z > (psDroid->pos.z + droidR)) || 
+	    (!isFlying(psOther) && isFlying(psDroid) && psDroid->pos.z > (psOther->pos.z + objR)))
+	{
+		// ground unit can't bump into a flying saucer..
+		return false;
+
+	}
+	return droidIntersects(psDroid, adjx, adjy, psOther);
+}
+
+static inline uint16_t _closest (uint16_t to, uint16_t from, uint16_t from_extent)
+{
+	int16_t dist = to - from;
+	if (dist >= 0 && dist < from_extent) { return to; }
+	else { return dist < 0 ? from : ((0xFFFF) & (from + from_extent - 1)); }
+}
+
+static inline uint16_t _closest (uint16_t to, uint16_t to_extent, uint16_t from, uint16_t from_extent)
+{
+	int16_t dist = to - from;
+	if (dist >= 0 && dist < from_extent) { return to; }
+	else { return dist < 0 ? from : ((0xFFFF) & (from + from_extent - 1)); }
+}
+
+/// Returns 255 if psDroid is NOT on an adjacent cell (=there is at least one cell buffer zone).
+/// Otherwise returns number where each bit indicats whether it's an allowed Direction
+/// (most significant = DIR_0)
+static uint8_t collisionDroid_adjacent (const DROID *psDroid, uint32_t adjx, uint32_t adjy, const DROID *psOther)
+{
+	const auto self_extent =  moveDroidSizeExtent (psDroid); // cells units
+	const auto other_extent = moveDroidSizeExtent (psOther); // cells units
+	uint16_t self_cellx, self_celly, other_cellx, other_celly;
+	world_to_cell(adjx, adjy, self_cellx, self_celly);
+	world_to_cell(psOther->pos.x, psOther->pos.y, other_cellx, other_celly);
+	if (self_extent == 1 && other_extent == 1)
+	{
+		return (std::abs(self_cellx - other_cellx) == 1) && (std::abs(self_celly - other_celly) == 1);
+	}
+	// try to translate Other position, and check if it would overlap with us
+	uint8_t does_overlap = 255;
+	for (int neighb = (int) Directions::DIR_0; neighb < DIR_TO_VEC_SIZE; neighb++)
+	{
+		const auto moved_other_x = other_cellx + dir_neighbors[neighb][0];
+		const auto moved_other_y = other_celly + dir_neighbors[neighb][1];
+		if (!(IS_BETWEEN(moved_other_x, 0, CELL_X_LEN))) continue;
+		if (!(IS_BETWEEN(moved_other_y, 0, CELL_Y_LEN))) continue;
+		const bool overlap = cells_droidIntersects(self_cellx, self_celly, self_extent, other_cellx, other_celly, other_extent);
+		// substract 1, because Directions::DIR_0 is 1
+		const int shift_to_position = 7 - neighb - 1;
+		does_overlap |= (1 << shift_to_position) & ((int) overlap);
+	}
+	// return directions which do not overlap
+	return ~does_overlap;
+}
+
+static bool (*collisionFunction) (const DROID*, uint32_t, uint32_t, const DROID*) = &collisionDroid_original;
+static std::vector<int> comfortField;
+
+void toggleCollisionFunction ()
+{
+	if (collisionFunction == &collisionDroid_original)
+	{
+		collisionFunction = &collisionDroid_overlap;
+	}
+	else
+	{
+		collisionFunction = &collisionDroid_original;
+	}
+}
+
+// Assumption? : if we are moving to somewhere, this means that global pathfinder thinks next cell in that direction is walkable
+Directions leastDiscomfortable (Directions to, uint16_t at_cellx, uint16_t at_celly)
+{
+	ASSERT_OR_RETURN(Directions::DIR_6, to != Directions::DIR_NONE, "assumption failed");
+	// check first 3 equivalence groups
+	const auto preferences = dir_avoidance_preference[(int) to];
+	// first group is size 3
+	// check that no static obstacles are preventing taking that direction
+	// then, for all free directions, choose the one with least discomfort
+	bool all_blocked = false;
+
+	
+	if (dir_is_diagonal[(int) to])
+	{
+		const auto group = dir_groups_diagonal[(int) to];
+	}
+	else
+	{
+		const auto group = dir_groups_straight[(int) to];
+	}
+	return Directions::DIR_NONE;	
+}
+
+/// Droid collision detection (against other droids)
+// see if a droid has run into another droid. Modifiy its movement vector to avoid overlapping
+// pmx, pmy : components of velocity
 static void moveCalcDroidSlide(DROID *psDroid, int *pmx, int *pmy)
 {
-	int32_t		droidR, rad, radSq, objR, xdiff, ydiff, distSq, spmx, spmy;
-	bool            bLegs;
+	int32_t		droidR, spmx, spmy;
+	bool        bLegs;
 	ASSERT_OR_RETURN(, psDroid != nullptr, "Bad droid");
 	CHECK_DROID(psDroid);
 
@@ -1045,125 +1336,161 @@ static void moveCalcDroidSlide(DROID *psDroid, int *pmx, int *pmy)
 	}
 	spmx = gameTimeAdjustedAverage(*pmx, EXTRA_PRECISION);
 	spmy = gameTimeAdjustedAverage(*pmy, EXTRA_PRECISION);
-	if (psDroid->player == 0)
-		debug (LOG_FLOWFIELD, "params: %i %i %i %i", *pmx, *pmy, spmx, spmy);
-	droidR = moveObjRadius((BASE_OBJECT *)psDroid);
+	uint32_t adjx = psDroid->pos.x + spmx;
+	uint32_t adjy = psDroid->pos.y + spmy;
+	// if (psDroid->player == 0) debug (LOG_FLOWFIELD, "params: %i %i %i %i", *pmx, *pmy, spmx, spmy);
+	droidR = moveObjRadius((BASE_OBJECT *) psDroid);
 	BASE_OBJECT *psObst = nullptr;
 	static GridList gridList;  // static to avoid allocations.
-	gridList = gridStartIterate(psDroid->pos.x, psDroid->pos.y, OBJ_MAXRADIUS);
+	static const int steerAwayRadius = TILE_UNITS * 3;
+	static const int steerAwayRadiusCells = 8;
+	// the closer we are to obstacle, the greater discomfort is
+	static const uint16_t discomforts[9] = {65535, 57344, 49152, 40960, 32768, 24576, 16384, 8192, 0};
+	gridList = gridStartIterate(psDroid->pos.x, psDroid->pos.y, steerAwayRadius);
 	for (GridIterator gi = gridList.begin(); gi != gridList.end(); ++gi)
 	{
 		BASE_OBJECT *psObj = *gi;
+		if (psObj->id == psDroid->id) continue;
 		if (psObj->died)
 		{
 			ASSERT(psObj->type < OBJ_NUM_TYPES, "Bad pointer! type=%u", psObj->type);
 			continue;
 		}
-		if (psObj->type == OBJ_DROID)
+		// TODO: also check for structures, and recalculate flowfield when unknown obstacles are detected
+		if (psObj->type != OBJ_DROID) continue;
+		DROID * psOther = static_cast<DROID*> (psObj);
+		const auto droidR = moveObjRadius(psDroid);
+		const auto objR = moveObjRadius(psOther);
+		if (isTransporter(psOther))
 		{
-			DROID * psObjcast = static_cast<DROID*> (psObj);
-			objR = moveObjRadius(psObj);
-			if (isTransporter(psObjcast))
-			{
-				// ignore transporters
-				continue;
-			}
-			if ((!isFlying(psDroid) && isFlying(psObjcast) && psObjcast->pos.z > (psDroid->pos.z + droidR)) || 
-			    (!isFlying(psObjcast) && isFlying(psDroid) && psDroid->pos.z > (psObjcast->pos.z + objR)))
-			{
-				// ground unit can't bump into a flying saucer..
-				continue;
-
-			}
-			if (!bLegs && (psObjcast)->droidType == DROID_PERSON)
-			{
-				// everything else doesn't avoid people
-				continue;
-			}
-			if (psObjcast->player == psDroid->player
-			    && psDroid->lastFrustratedTime > 0
-			    && gameTime - psDroid->lastFrustratedTime < FRUSTRATED_TIME)
-			{
-				continue; // clip straight through own units when sufficient frustrated -- using cheat codes!
-			}
+			// ignore transporters
+			continue;
 		}
+		if ((!isFlying(psDroid) && isFlying(psOther) && psOther->pos.z > (psDroid->pos.z + droidR)) || 
+		    (!isFlying(psOther) && isFlying(psDroid) && psDroid->pos.z > (psOther->pos.z + objR)))
+		{
+			// ground unit can't bump into a flying saucer..
+			continue;
+		}
+		auto rad = droidR + objR;
+		auto radSq = rad * rad;
+		// Calculate the vector from obstruction to ourselves
+		const int32_t xdiff = adjx - psOther->pos.x;
+		const int32_t ydiff = adjy - psOther->pos.y;
+		const auto distSq = xdiff * xdiff + ydiff * ydiff;
+		// calculate what direction we are moving wrt obstacle
+		// if moving in same direction as vector pointing from obstacle to us (>=0),
+		// then our movement should be left inchanged
+		const int dotMvObstCoeff = (*pmx) * xdiff + (*pmy) * ydiff >= 0 ? 1 : -1;
+		if (dotMvObstCoeff > 0) continue;
+		const bool riskOverlapping = radSq > distSq;
+		if (riskOverlapping)
+		{
+			// collision detected
+			// "hard" avoidance: prevent overlapping at all cost, will be handled below
+			psObst = psOther;
+			continue;
+		}
+		// TODO: if not moving, then skip steering
+		
+		// "soft" avoidance: hint our droid to steer away from dynamic obstacles
+		// check that we are in this droid's gravity pool
+		uint16_t other_cellx, other_celly, self_cellx, self_celly;
+		int diff_cellx, diff_celly, max_diff_cell;
+		world_to_cell(psOther->pos.x, psOther->pos.y, other_cellx, other_celly);
+		world_to_cell(adjx, adjy, self_cellx, self_celly);
+		// first, calculate how many cells away we are from the obstacle
+		diff_cellx = self_cellx - other_cellx;
+		diff_celly = self_celly - other_celly;
+		max_diff_cell = std::max(std::abs(diff_cellx), std::abs(diff_celly));
+		// too far to make decisions
+		if (max_diff_cell >= 9) continue;
+//		ASSERT_OR_RETURN(, max_diff_cell <= 8, "wrong assumptions??");
+		// ok now there is a risk that we could enter discomfort zone
+		// check where are we heading, and choose the least discomfortable direction
+		const auto discomfort = discomforts[max_diff_cell];
+
+
+		
+		// first, calculate linear interpolation of how far is obstacle compared
+		// max possible steerawayradius
+		const auto angle = iAtan2({xdiff, ydiff});
+		const auto projx = iSin(angle);
+		const auto projy = iCos(angle);
+		// the closer this number is to 65536, the further is obstacle
+		int ratio = (int64_t)65536 * (distSq - radSq) / (steerAwayRadius * steerAwayRadius);
+		// invert it, because repulsion gets stronger when obstacle is nearer
+		const auto repulsion = 65536 - ratio;
+		// scale to angle between ourself and obstacle,
+		// because repulsion is stronger when x/y projection is closer to 1
+		// repulsion is a relative force: the sum of all repulsions can, at worst, only nullify droid's speed
+		// but never push it in opposite direction
+		const auto ratiox = (int64_t)repulsion * projx / 65536;
+		const auto ratioy = (int64_t)repulsion * projy / 65536;
+		// parts which gets nullified
+		const uint32_t repulsion_dx = (int64_t)ratiox * (*pmx)  / 65536;
+		const uint32_t repulsion_dy = (int64_t)ratioy * (*pmy)  / 65536;
+		const auto distsq_cells = distSq / (FF_UNIT * FF_UNIT);
+		//const auto npmx = *pmx + repulsion_dx;
+		//const auto npmy = *pmy + repulsion_dy;
+		// repulsion: 5052 4781, rx ry 20558 -42700, adjxy 4964 13790, other 4925 13871
+		if (psDroid->player == 0)
+			debug (LOG_FLOWFIELD, "repulsion against %i: %i %i (was %i %i), ratio %i %li %li, adjxy %i %i, obst %i %i, %i",
+			psOther->id, repulsion_dx, repulsion_dy, *pmx, *pmy, ratio, ratiox, ratioy, adjx, adjy, xdiff, ydiff, distsq_cells);
+		*pmx = (*pmx) - repulsion_dx;
+		*pmy = (*pmy) - repulsion_dy;
+	}
+	
+	
+	// TODO: unify with above
+	#if 0
+	gridList = gridStartIterate(psDroid->pos.x, psDroid->pos.y, TILE_UNITS);
+	for (GridIterator gi = gridList.begin(); gi != gridList.end(); ++gi)
+	{
+		BASE_OBJECT *psObj = *gi;
+		if (psObj->id == psDroid->id) continue;
+		if (psObj->died)
+		{
+			ASSERT(psObj->type < OBJ_NUM_TYPES, "Bad pointer! type=%u", psObj->type);
+			continue;
+		}
+		
+		if (psObj->type != OBJ_DROID) continue;
+		DROID * psObjcast = static_cast<DROID*> (psObj);
+		if (!collisionFunction(psDroid, adjx, adjy, psObjcast)) continue;
+		if (psDroid->player == 0) debug (LOG_FLOWFIELD, "found obstacle droid %i collides with %i", psDroid->id, psObj->id);
+		//droidRepulse(psDroid, adjx, adjy, psObst, pmx, pmy);
+		#if 1
+		//uint8_t allowed_dirs = collisionDroid_adjacent(psDroid, adjx, adjy, psObjcast);
+		//if (allowed_dirs == 255) continue;
+		if (psObst != nullptr)
+		{
+			// hit more than one droid - stop
+			*pmx = 0;
+			*pmy = 0;
+			psObst = nullptr;
+			break;
+		}	
 		else
 		{
-			// ignore anything that isn't a droid
-			continue;
+			// first collision with this particular droid detected
+			psObst = psObj;
 		}
-
-		objR = moveObjRadius(psObj);
-		rad = droidR + objR;
-		radSq = rad * rad;
-
-		xdiff = psDroid->pos.x + spmx - psObj->pos.x;
-		ydiff = psDroid->pos.y + spmy - psObj->pos.y;
-		distSq = xdiff * xdiff + ydiff * ydiff;
-		if (xdiff * spmx + ydiff * spmy >= 0)
-		{
-			// object behind
-			continue;
-		}
-		// collision detection between droids
-		if (radSq > distSq)
-		{
-			if (psObst != nullptr)
-			{
-				// hit more than one droid - stop
-				*pmx = 0;
-				*pmy = 0;
-				psObst = nullptr;
-				break;
-			}
-			else
-			{
-				if (psDroid->player == 0)
-					debug (LOG_FLOWFIELD, "found obstacle droid %i", psObj->id);
-				psObst = psObj;
-
-				// note the bump time and position if necessary
-				if (psDroid->sMove.bumpTime == 0)
-				{
-					psDroid->sMove.bumpTime = gameTime;
-					psDroid->sMove.lastBump = 0;
-					psDroid->sMove.pauseTime = 0;
-					psDroid->sMove.bumpPos = psDroid->pos;
-					psDroid->sMove.bumpDir = psDroid->rot.direction;
-				}
-				else
-				{
-					psDroid->sMove.lastBump = (UWORD)(gameTime - psDroid->sMove.bumpTime);
-				}
-
-				// tell inactive droids to get out the way
-				if (psObst && psObst->type == OBJ_DROID)
-				{
-					DROID *psShuffleDroid = (DROID *)psObst;
-
-					if (aiCheckAlliances(psObst->player, psDroid->player)
-					    && psShuffleDroid->action != DACTION_WAITDURINGREARM
-					    && psShuffleDroid->sMove.Status == MOVEINACTIVE)
-					{
-						moveShuffleDroid(psShuffleDroid, psDroid->sMove.target - psDroid->pos.xy());
-					}
-				}
-			}
-		}
+		#endif
 	}
-	if (psDroid->player == 0 && psDroid->id == 226534)
-	{
-		debug (LOG_FLOWFIELD, "%i %i %i %i", radSq, distSq, droidR, objR);
-	}
+	#endif 
 	if (psObst != nullptr)
 	{
 		// Try to slide round it
 		moveCalcSlideVector(psDroid, psObst->pos.x, psObst->pos.y, pmx, pmy);
+		// debug (LOG_FLOWFIELD, "get repulsion");
+		
 	}
+	
 	CHECK_DROID(psDroid);
 }
 
-/// Droid avoidance
+/// Droid collision avoidance
 // get an obstacle avoidance vector
 static Vector2i moveGetObstacleVector(DROID *psDroid, Vector2i dest)
 {
@@ -1570,9 +1897,11 @@ static void moveUpdateDroidPos(DROID *psDroid, int32_t dx, int32_t dy)
 		// don't actually move if the move is paused
 		return;
 	}
-
-	psDroid->pos.x += gameTimeAdjustedAverage(dx, EXTRA_PRECISION);
-	psDroid->pos.y += gameTimeAdjustedAverage(dy, EXTRA_PRECISION);
+	const auto _dx = gameTimeAdjustedAverage(dx, EXTRA_PRECISION);
+	const auto _dy = gameTimeAdjustedAverage(dy, EXTRA_PRECISION);
+	if (psDroid->player == 0) debug (LOG_FLOWFIELD, "speed for this frame was %i %i, %i %i", dx, dy, _dx, _dy);
+	psDroid->pos.x += _dx;
+	psDroid->pos.y += _dy;
 
 	/* impact if about to go off map else update coordinates */
 	if (worldOnMap(psDroid->pos.x, psDroid->pos.y) == false)
@@ -1628,8 +1957,8 @@ static void moveUpdateGroundModel(DROID *psDroid, SDWORD speed, uint16_t directi
 	moveCheckFinalWaypoint(psDroid, &speed);
 
 	moveUpdateDroidDirection(psDroid, &speed, direction, spinAngle, spinSpeed, turnSpeed, &iDroidDir);
-// 	fNormalSpeed = iCosR( (uint16_t)(iDroidDir - psDroid->sMove.moveDir), psDroid->sMove.speed);
-//  fPerpSpeed = iSinR( (uint16_t)(iDroidDir - psDroid->sMove.moveDir), psDroid->sMove.speed);
+	fNormalSpeed = iCosR( (uint16_t)(iDroidDir - psDroid->sMove.moveDir), psDroid->sMove.speed);
+	fPerpSpeed = iSinR( (uint16_t)(iDroidDir - psDroid->sMove.moveDir), psDroid->sMove.speed);
 	fNormalSpeed = moveCalcNormalSpeed(psDroid, speed, iDroidDir, psPropStats->acceleration, psPropStats->deceleration);
 	fPerpSpeed   = moveCalcPerpSpeed(psDroid, iDroidDir, psPropStats->skidDeceleration);
 
@@ -1654,59 +1983,7 @@ static void moveUpdateGroundModel(DROID *psDroid, SDWORD speed, uint16_t directi
 	updateDroidOrientation(psDroid);
 }
 
-/*static void ff_moveUpdateGroundModel(DROID *psDroid, SDWORD speed, uint16_t direction)
-{
-	int			fPerpSpeed, fNormalSpeed;
-	uint16_t                iDroidDir;
-	uint16_t                slideDir = 0;
-	PROPULSION_STATS	*psPropStats;
-	int32_t                 spinSpeed, spinAngle, turnSpeed, dx, dy, bx, by;
-
-	CHECK_DROID(psDroid);
-
-	// nothing to do if the droid is stopped
-	if (moveDroidStopped(psDroid, speed) == true)
-	{
-		return;
-	}
-
-	psPropStats = asPropulsionStats + psDroid->asBits[COMP_PROPULSION];
-	spinSpeed = psDroid->baseSpeed * psPropStats->spinSpeed;
-	turnSpeed = psDroid->baseSpeed * psPropStats->turnSpeed;
-	spinAngle = DEG(psPropStats->spinAngle);
-	// this is like Steering - Arriving behavior
-	moveCheckFinalWaypoint(psDroid, &speed);
-
-	moveUpdateDroidDirection(psDroid, &speed, direction, spinAngle, spinSpeed, turnSpeed, &iDroidDir);
-// 	fNormalSpeed = iCosR( (uint16_t)(iDroidDir - psDroid->sMove.moveDir), psDroid->sMove.speed);
-//  fPerpSpeed = iSinR( (uint16_t)(iDroidDir - psDroid->sMove.moveDir), psDroid->sMove.speed);
-	fNormalSpeed = moveCalcNormalSpeed(psDroid, speed, iDroidDir, psPropStats->acceleration, psPropStats->deceleration);
-	fPerpSpeed   = moveCalcPerpSpeed(psDroid, iDroidDir, psPropStats->skidDeceleration);
-
-	moveCombineNormalAndPerpSpeeds(psDroid, fNormalSpeed, fPerpSpeed, iDroidDir);
-	moveGetDroidPosDiffs(psDroid, &dx, &dy);
-	moveOpenGates(psDroid);
-	moveCheckSquished(psDroid, dx, dy);
-	// Note: turn this off because ws supposed to be computed before
-	// moveCalcDroidSlide(psDroid, &dx, &dy);
-	bx = dx;
-	by = dy;
-	//  Note: turn this off because ws supposed to be computed before
-	// moveCalcBlockingSlide(psDroid, &bx, &by, direction, &slideDir);
-	if (bx != dx || by != dy)
-	{
-		moveUpdateDroidDirection(psDroid, &speed, slideDir, spinAngle, psDroid->baseSpeed * DEG(1), psDroid->baseSpeed * DEG(1) / 3, &iDroidDir);
-		psDroid->rot.direction = iDroidDir;
-	}
-
-	moveUpdateDroidPos(psDroid, bx, by);
-
-	//set the droid height here so other routines can use it
-	psDroid->pos.z = map_Height(psDroid->pos.x, psDroid->pos.y); //jps 21july96
-	updateDroidOrientation(psDroid);
-}*/
-
-/* Update a persons position and speed given target values */
+/* Update a persons/cyborg position and speed given target values */
 static void moveUpdatePersonModel(DROID *psDroid, SDWORD speed, uint16_t direction)
 {
 	int			fPerpSpeed, fNormalSpeed;
@@ -1751,6 +2028,7 @@ static void moveUpdatePersonModel(DROID *psDroid, SDWORD speed, uint16_t directi
 	moveCombineNormalAndPerpSpeeds(psDroid, fNormalSpeed, fPerpSpeed, iDroidDir);
 	moveGetDroidPosDiffs(psDroid, &dx, &dy);
 	moveOpenGates(psDroid);
+	// commenting this completely removes collisions
 	moveCalcDroidSlide(psDroid, &dx, &dy);
 	moveCalcBlockingSlide(psDroid, &dx, &dy, direction, &slideDir);
 	moveUpdateDroidPos(psDroid, dx, dy);
@@ -2467,6 +2745,54 @@ void ff_applyForce(DROID &droid, Vector2f force)
 	droid.sMove.physics.acceleration = force; // (force / droid.sMove.physics.mass);
 }
 
+// add an area of discomfort around a dynamic obstacle
+void addDynamicObstacle(uint16_t worldx, uint16_t worldy)
+{
+	uint16_t cellx, celly;
+	//static const uint16_t discomforts[8] = {65535, 57344, 49152, 40960, 32768, 24576, 16384, 8192};
+	// dont really care about the value here, but shouldn't be confused with dynamic obstacle origin
+	static const uint16_t discomfort = 1;
+	static const uint16_t dynamic_obstacle = 65535;
+	world_to_cell(worldx, worldy, cellx, celly);
+	static const auto offset = 4; // cell units
+	for (int dy = 0; dy < offset; dy++)
+	{
+		for (int dx = 0; dx < offset; dx++)
+		{
+			const auto _x = cellx + dx;
+			const auto _y = celly + dy;
+			if (!(IS_BETWEEN(_x, 0, CELL_X_LEN))) continue;
+			if (!(IS_BETWEEN(_y, 0, CELL_Y_LEN))) continue;
+			comfortField.at(cells_2Dto1D(_x, _y)) -= discomfort;
+		}
+	}
+	comfortField.at(cells_2Dto1D(cellx, celly)) = dynamic_obstacle;
+}
+
+void beforeUpdateDroid()
+{
+	comfortField.clear();
+	// TODO: resize doesn't need to be done every tick
+	// only once, when map size is known. But I don't think it's hurting.
+	comfortField.resize(CELL_AREA, 0);
+	// update discomforts
+	DROID *psNext = nullptr;
+	for (unsigned i = 0; i < MAX_PLAYERS; i++)
+	{
+		for (DROID *psCurr = apsDroidLists[i]; psCurr != nullptr; psCurr = psNext)
+		{
+			// FIXME: hmm ignore VTOL for now, they have different discomfort fields 
+			if (isVtolDroid(psCurr)) continue;
+			addDynamicObstacle(psCurr->pos.x, psCurr->pos.y);
+		}
+
+		for (DROID *psCurr = mission.apsDroidLists[i]; psCurr != nullptr; psCurr = psNext)
+		{
+			if (isVtolDroid(psCurr)) continue;
+			addDynamicObstacle(psCurr->pos.x, psCurr->pos.y);
+		}
+	}
+}
 
 /* Frame update for the movement of a tracked droid */
 void moveUpdateDroid(DROID *psDroid)

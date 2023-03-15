@@ -35,6 +35,8 @@ static const uint16_t MediumRadius      = 2; // FF_UNITS = 64,
 static const uint16_t LargeRadius       = 2; // FF_UNITS = 64, probably make this bigger, like 5 * FF_UNITS
 static const uint16_t ExtraLargeRadius  = 4; // FF_UNITS = 128,
 
+bool moveCalcSlideVector(int32_t obstX, int32_t obstY, int32_t mx, int32_t my, Vector2i &out);
+
 /* Set a target location for a droid to move to  - returns a bool based on if there is a path to the destination (true if there is a path)*/
 bool moveDroidTo(DROID *psDroid, UDWORD x, UDWORD y, FPATH_MOVETYPE moveType = FMT_MOVE);
 
@@ -65,12 +67,17 @@ SDWORD moveCalcDroidSpeed(DROID *psDroid);
 // get collision radius
 SDWORD moveObjRadius(const BASE_OBJECT *psObj);
 
+uint8_t moveDroidSizeExtent(const DROID *psDroid);
+
 /* update body and turret to local slope */
 void updateDroidOrientation(DROID *psDroid);
 
+// update various dynamic fields  
+void beforeUpdateDroid();
+
 /* audio callback used to kill movement sounds */
 bool moveCheckDroidMovingAndVisible(void *psObj);
-void ff_update(DROID &droid);
+// void ff_update(DROID &droid);
 const char *moveDescription(MOVE_STATUS status);
 
 #endif // __INCLUDED_SRC_MOVE_H__
