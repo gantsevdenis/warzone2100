@@ -29,6 +29,7 @@
 #include "lib/framework/frame.h" // for statsdef.h
 #include "statsdef.h"
 #include "featuredef.h"
+#include <cstdint>
 #include <deque>
 #include <glm/gtx/transform.hpp>
 
@@ -195,6 +196,11 @@ static inline uint32_t world_2Dto1D(uint16_t worldx, uint16_t worldy)
 	return worldy * WORLD_FACTOR + worldx;
 }
 
+static inline uint16_t tiles_2Dto1D (uint8_t tilex, uint8_t tiley)
+{
+	return tiley * 256 + tilex;
+}
+
 static inline uint32_t cells_2Dto1D(int cellx, int celly)
 {
 	// Note: this assumes we have 1 Flowfield per entire Map.
@@ -212,6 +218,15 @@ static inline void cells_1Dto2D(uint32_t idx, uint16_t &cellx, uint16_t &celly)
 	cellx = idx % CELL_X_LEN;
 	celly = (idx - cellx) / CELL_X_LEN;
 }
+
+static inline void tiles_1Dto2D (uint16_t idx, uint8_t &tilex, uint8_t &tiley)
+{
+	tilex = idx % 256;
+	tiley = (idx - tilex) / 256;
+}
+
+/// Returns true if droid is on a tile which is the target destination
+bool droidReachedGoal (const DROID &psDroid);
 
 /// Enable flowfield pathfinding.
 void flowfieldEnable();
@@ -234,7 +249,7 @@ void cbFeatureDestroyed(const FEATURE *feature);
 /// Returns true and populates flowfieldId if a flowfield exists for the specified target.
 bool tryGetFlowfieldForTarget(uint16_t worldx, uint16_t worldy, PROPULSION_TYPE propulsion, int player);
 /// Starts to generate a flowfield for the specified target.
-void calculateFlowfieldAsync(uint16_t worldx, uint16_t worldy, PROPULSION_TYPE propulsion, int player, uint8_t radius);
+void calculateFlowfieldAsync(uint16_t worldx, uint16_t worldy, PROPULSION_TYPE propulsion, int player);
 /// Returns true and populates vector if a directional vector exists for the specified flowfield and target position.
 // bool tryGetFlowfieldVector(unsigned int flowfieldId, uint8_t x, uint8_t y, Vector2f& vector);
 
