@@ -80,6 +80,7 @@ enum class Quadrant { Q1, Q2, Q3, Q4};
 //   Quad3   |   Quad4
 //           |+y
 #define DIR_TO_VEC_SIZE 9
+// Hm this is the same thing as dir_neighbours
 const Vector2i dirToVec[DIR_TO_VEC_SIZE] = {
 	Vector2i { 0,  0}, // NONE
 	Vector2i {-1, -1}, // DIR_0
@@ -130,17 +131,18 @@ static const int dir_neighbors[DIR_TO_VEC_SIZE][2] = {
 //
 // When resorting to the last two EqGr, we should remember visited cells, as if they were occupied
 // by some dynamic obstacle, so that droids are not tempted to visit them multiple times
-static const Directions dir_avoidance_preference[8][8] = {
+static const Directions dir_avoidance_preference[9][8] = {
+  {Directions::DIR_NONE, Directions::DIR_NONE, Directions::DIR_NONE, Directions::DIR_NONE, Directions::DIR_NONE, Directions::DIR_NONE, Directions::DIR_NONE, Directions::DIR_NONE},
   // ↖: ↖↑← ↗↙ →↓ ↘
   {Directions::DIR_0, Directions::DIR_1, Directions::DIR_3, Directions::DIR_2, Directions::DIR_5, Directions::DIR_4, Directions::DIR_6, Directions::DIR_7},
-  // ↑: ↑↖↗ ←→ ↓ ↙↘
-  {Directions::DIR_1, Directions::DIR_0, Directions::DIR_2, Directions::DIR_3, Directions::DIR_4, Directions::DIR_6, Directions::DIR_5, Directions::DIR_7},
-  // ↗: ↗↑→ ↖↘ ↓← ↙
-  {Directions::DIR_2, Directions::DIR_1, Directions::DIR_4, Directions::DIR_0, Directions::DIR_7, Directions::DIR_6, Directions::DIR_3, Directions::DIR_5},
+  // ↑: ↑↗↖ ←→ ↓ ↙↘
+  {Directions::DIR_1, Directions::DIR_2, Directions::DIR_0, Directions::DIR_3, Directions::DIR_4, Directions::DIR_6, Directions::DIR_5, Directions::DIR_7},
+  // ↗: ↗→↑ ↖↘ ↓← ↙
+  {Directions::DIR_2, Directions::DIR_4, Directions::DIR_1, Directions::DIR_0, Directions::DIR_7, Directions::DIR_6, Directions::DIR_3, Directions::DIR_5},
   // ←: ←↖↙ ↑↓ → ↗↘
   {Directions::DIR_3, Directions::DIR_0, Directions::DIR_5, Directions::DIR_1, Directions::DIR_6, Directions::DIR_4, Directions::DIR_2, Directions::DIR_7},
-  // →: →↗↘ ↑↓ ← ↖↙
-  {Directions::DIR_4, Directions::DIR_2, Directions::DIR_7, Directions::DIR_1, Directions::DIR_6, Directions::DIR_3, Directions::DIR_0, Directions::DIR_5},
+  // →: →↘↗ ↑↓ ← ↖↙
+  {Directions::DIR_4, Directions::DIR_7, Directions::DIR_2, Directions::DIR_1, Directions::DIR_6, Directions::DIR_3, Directions::DIR_0, Directions::DIR_5},
   // ↙: ↙←↓ ↖↘ ↑→ ↗
   {Directions::DIR_5, Directions::DIR_3, Directions::DIR_6, Directions::DIR_0, Directions::DIR_7, Directions::DIR_1, Directions::DIR_4, Directions::DIR_2},
   // ↓: ↓↙↘ ←→ ↑ ↖↗
@@ -152,19 +154,48 @@ static const Directions dir_avoidance_preference[8][8] = {
 static const auto dir_straight = {Directions::DIR_1, Directions::DIR_3, Directions::DIR_4, Directions::DIR_6};
 static const auto dir_diagonal = {Directions::DIR_0, Directions::DIR_2, Directions::DIR_5, Directions::DIR_7}; 
 
-// equivalence groups
-// note how all straight/diagonal directions have the same partition
-static const int dir_groups_straight[] = {3, 2, 1, 2};
-static const int dir_groups_diagonal[] = {3, 2, 2, 1};
 // last 2 eqgr needs special marking for cells
 static const bool dir_group_backtracks[] = {false, false, true, true};
 static const bool dir_is_diagonal[9] = {
-  false,
-  true ,  false, true,
-  false,         false,
-  true ,  false, true
+	false,
+	true ,  false, true,
+	false,         false,
+	true ,  false, true
+};
+static const Directions dir_shift_pos_to_dir[8] = {
+	Directions::DIR_7,
+	Directions::DIR_6,
+	Directions::DIR_5,
+	Directions::DIR_4,
+	Directions::DIR_3,
+	Directions::DIR_2,
+	Directions::DIR_1,
+	Directions::DIR_0,
+};
+static const uint8_t dir_shift_pos[] = {
+	0, // None
+	0b10000000, // DIR_0
+	0b01000000, // DIR_1
+	0b00100000, // DIR_2
+	0b00010000, // DIR_3
+	0b00001000, // DIR_4
+	0b00000100, // DIR_5
+	0b00000010, // DIR_6
+	0b00000001  // DIR_7
 };
 
+static const uint16_t dir_to_moveDir[] = {
+	0,      // None
+	46341,  // DIR_0
+	32768,  // DIR_1
+	24576,  // DIR_2
+	49152,  // DIR_3
+	16384,  // DIR_4
+	57344,  // DIR_5,
+	0,      // DIR_6
+	8192    // DIR_7
+	
+};
 
 static inline uint16_t world_to_cell(uint16_t world, uint16_t &cell)
 {
@@ -227,6 +258,8 @@ static inline void tiles_1Dto2D (uint16_t idx, uint8_t &tilex, uint8_t &tiley)
 
 /// Returns true if droid is on a tile which is the target destination
 bool droidReachedGoal (const DROID &psDroid);
+/// Returns map of blocked tiles around given point
+uint8_t world_getImpassableArea(uint16_t worldx, uint16_t worldy, PROPULSION_TYPE propulsion);
 
 /// Enable flowfield pathfinding.
 void flowfieldEnable();
@@ -248,13 +281,17 @@ void cbFeatureDestroyed(const FEATURE *feature);
 
 /// Returns true and populates flowfieldId if a flowfield exists for the specified target.
 bool tryGetFlowfieldForTarget(uint16_t worldx, uint16_t worldy, PROPULSION_TYPE propulsion, int player);
+
 /// Starts to generate a flowfield for the specified target.
 void calculateFlowfieldAsync(uint16_t worldx, uint16_t worldy, PROPULSION_TYPE propulsion, int player);
 /// Returns true and populates vector if a directional vector exists for the specified flowfield and target position.
 // bool tryGetFlowfieldVector(unsigned int flowfieldId, uint8_t x, uint8_t y, Vector2f& vector);
 
 // bool tryGetFlowfieldDirection(PROPULSION_TYPE prop, const Position &pos, const Vector2i &dest, uint8_t radius, Directions &out);
-bool tryGetFlowfieldVector(DROID &droid, uint16_t &out);
+bool tryGetFlowfieldVector(const DROID &droid, uint16_t &out);
+
+/// try find related flowfield, may return nullptr
+Directions droidGetFFDirection (const DROID &psDroid);
 
 /// is tile (x, y) passable? We don't need propulsion argument, it's implicit for this particular flowfield
 bool flowfieldIsImpassable(unsigned int flowfieldId, uint8_t x, uint8_t y);

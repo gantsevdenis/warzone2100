@@ -64,6 +64,7 @@
 #include "wzmaplib/map.h"
 #include <cstdint>
 #include <glm/fwd.hpp>
+#include <limits>
 
 /* max and min vtol heights above terrain */
 #define	VTOL_HEIGHT_MIN				250
@@ -1243,11 +1244,34 @@ static inline uint16_t _closest (uint16_t to, uint16_t from, uint16_t from_exten
 	else { return dist < 0 ? from : ((0xFFFF) & (from + from_extent - 1)); }
 }
 
-static inline uint16_t _closest (uint16_t to, uint16_t to_extent, uint16_t from, uint16_t from_extent)
+
+static Directions closestDirection (uint16_t d)
 {
-	int16_t dist = to - from;
-	if (dist >= 0 && dist < from_extent) { return to; }
-	else { return dist < 0 ? from : ((0xFFFF) & (from + from_extent - 1)); }
+	static int thresholds[8] = {
+		4096
+		, 12288
+		, 20480
+		, 28672
+		, 36864
+		, 45056
+		, 53248
+		, 61440
+	};
+	static Directions out[8] = {
+		Directions::DIR_6,
+		Directions::DIR_7,
+		Directions::DIR_4,
+		Directions::DIR_2,
+		Directions::DIR_1,
+		Directions::DIR_0,
+		Directions::DIR_3,
+		Directions::DIR_5
+	};
+	for (int i = 0; i < 8; i++)
+	{
+		if (d < thresholds[i]) return out[i];
+	}
+	return Directions::DIR_6;
 }
 
 /// Returns 255 if psDroid is NOT on an adjacent cell (=there is at least one cell buffer zone).
@@ -1274,7 +1298,7 @@ static uint8_t collisionDroid_adjacent (const DROID *psDroid, uint32_t adjx, uin
 		if (!(IS_BETWEEN(moved_other_y, 0, CELL_Y_LEN))) continue;
 		const bool overlap = cells_droidIntersects(self_cellx, self_celly, self_extent, other_cellx, other_celly, other_extent);
 		// substract 1, because Directions::DIR_0 is 1
-		const int shift_to_position = 7 - neighb - 1;
+		const int shift_to_position = 9 - neighb - 1;
 		does_overlap |= (1 << shift_to_position) & ((int) overlap);
 	}
 	// return directions which do not overlap
@@ -1295,28 +1319,102 @@ void toggleCollisionFunction ()
 		collisionFunction = &collisionDroid_original;
 	}
 }
+static bool _pdebug = false;
+static const uint16_t DISCOMFORT_FORCE = 4;
 
-// Assumption? : if we are moving to somewhere, this means that global pathfinder thinks next cell in that direction is walkable
-Directions leastDiscomfortable (Directions to, uint16_t at_cellx, uint16_t at_celly)
+static Directions _leastDiscomfortable2 (Directions to, uint16_t at_cellx, uint16_t at_celly, const Directions pref_dirs[], uint8_t pref_dir_sz, uint8_t free_tiles)
+{
+	int cur_comfort = std::numeric_limits<int32_t>::min();
+	Directions best_comfort_dir = Directions::DIR_NONE;
+	for (int i = 0; i < pref_dir_sz; i++)
+	{
+		Directions d = pref_dirs[i];
+		// directions is blocked, skip
+		if (! (dir_shift_pos[(int) d] & free_tiles)) continue;
+		const auto dx_dy = dir_neighbors[(int) d];
+		// we don't need to check bounds here, because out-of-map tiles
+		// were marked as "blocked" previously, we inverted them, so only getting free tiles:
+		// if a tile is free, then cell is also free, because it's smaller
+		const auto neighb_idx = cells_2Dto1D(at_cellx + dx_dy[0], at_celly + dx_dy[1]);
+		auto this_comfort = comfortField.at(neighb_idx);
+		// Add up all discomfort fields and flowfield
+		if (d == to)
+		{
+			// cancel out our own discomfort field (once cell ahead)
+			this_comfort += DISCOMFORT_FORCE;
+		}
+		// only change dir if this one is strictly more comfortable
+		if (this_comfort > cur_comfort)
+		{
+			if (_pdebug)
+			{
+				// debug (LOG_FLOWFIELD, "this_comfort %i in DIR_%i", this_comfort, (int) d - 1);
+			}
+			cur_comfort = this_comfort;
+			best_comfort_dir = d;
+		}
+		else if (_pdebug)
+		{
+			// debug (LOG_FLOWFIELD, "ignored DIR_%i, comfort was %i", (int) d - 1, this_comfort);
+		}
+	}
+	return best_comfort_dir;
+}
+
+// Given a field, and a point on that field, decide what is the cheapest move?
+// - check that no static obstacles are preventing moving to preferred direction
+// - then, for all free directions, choose the most comfortable one
+// player is only for DEBUG
+Directions leastDiscomfortable (Directions to, uint16_t at_worldx, uint16_t at_worldy, PROPULSION_TYPE propulsion, int player)
 {
 	ASSERT_OR_RETURN(Directions::DIR_6, to != Directions::DIR_NONE, "assumption failed");
-	// check first 3 equivalence groups
+	// check first equivalence group of 3 elements
 	const auto preferences = dir_avoidance_preference[(int) to];
-	// first group is size 3
-	// check that no static obstacles are preventing taking that direction
-	// then, for all free directions, choose the one with least discomfort
-	bool all_blocked = false;
+	ASSERT_OR_RETURN(Directions::DIR_NONE, preferences[0] == to, "assumption failed: most preferred direction must be the current one, %i != %i",
+	(int) to, (int) preferences[0]);
+	// free from *static* obstacles only : we are trying to determine the dynamic obstacles right now!
+	const uint8_t free_tiles = ~world_getImpassableArea(at_worldx, at_worldy, propulsion);
+	if (free_tiles == 0) return Directions::DIR_NONE;
 
-	
+	uint16_t at_cellx, at_celly;
+	world_to_cell(at_worldx, at_worldy, at_cellx, at_celly);
+	// first group is size 3
+	Directions best_comfort_dir = _leastDiscomfortable2(to, at_cellx, at_celly, preferences, 3, free_tiles);
+	// if (player == 0) debug (LOG_FLOWFIELD, "gr1: free, possible: %i %i, to=DIR_%i", free_tiles, possible_tiles, (int) to - 1);
+	if (best_comfort_dir != Directions::DIR_NONE) return best_comfort_dir;
+
+	// next eq group is size 2
+	best_comfort_dir = _leastDiscomfortable2(to, at_cellx, at_celly, preferences + 3, 2, free_tiles);
+	// if (player == 0) debug (LOG_FLOWFIELD, "gr2: free, possible: %i %i",free_tiles, possible_tiles);
+	if (best_comfort_dir != Directions::DIR_NONE) return best_comfort_dir;
 	if (dir_is_diagonal[(int) to])
 	{
-		const auto group = dir_groups_diagonal[(int) to];
+		// diagonal: next group is size 2
+		best_comfort_dir = _leastDiscomfortable2(to, at_cellx, at_celly, preferences + 5, 2, free_tiles);
+		if (best_comfort_dir != Directions::DIR_NONE) return best_comfort_dir;
+		// lonely last dir
+		best_comfort_dir = _leastDiscomfortable2(to, at_cellx, at_celly, preferences + 7, 1, free_tiles);
+		if (best_comfort_dir != Directions::DIR_NONE) return best_comfort_dir;
 	}
 	else
 	{
-		const auto group = dir_groups_straight[(int) to];
+		// straight: next group is size 1, lonely dir
+		best_comfort_dir = _leastDiscomfortable2(to, at_cellx, at_celly, preferences + 5, 1, free_tiles);
+		if (best_comfort_dir != Directions::DIR_NONE) return best_comfort_dir;
+		// last eqiv group
+		best_comfort_dir = _leastDiscomfortable2(to, at_cellx, at_celly, preferences + 6, 2, free_tiles);
+		if (best_comfort_dir != Directions::DIR_NONE) return best_comfort_dir;
 	}
+	// TODO: everything is blocked, just stop I guess 
 	return Directions::DIR_NONE;	
+}
+
+static void moveGetDroidPosDiffs(DROID *psDroid, int32_t *pDX, int32_t *pDY)
+{
+	int32_t move = psDroid->sMove.speed * EXTRA_PRECISION;  // high precision
+
+	*pDX = iSinR(psDroid->sMove.moveDir, move);
+	*pDY = iCosR(psDroid->sMove.moveDir, move);
 }
 
 /// Droid collision detection (against other droids)
@@ -1343,9 +1441,13 @@ static void moveCalcDroidSlide(DROID *psDroid, int *pmx, int *pmy)
 	BASE_OBJECT *psObst = nullptr;
 	static GridList gridList;  // static to avoid allocations.
 	static const int steerAwayRadius = TILE_UNITS * 3;
-	static const int steerAwayRadiusCells = 8;
+	// static const int steerAwayRadiusCells = 8;
+	const uint16_t self_dir = psDroid->sMove.moveDir;
+	const Directions approx_dir = closestDirection(self_dir);
+	PROPULSION_STATS *psPropStats = asPropulsionStats + psDroid->asBits[COMP_PROPULSION];
+	PROPULSION_TYPE propulsion = psPropStats->propulsionType;
 	// the closer we are to obstacle, the greater discomfort is
-	static const uint16_t discomforts[9] = {65535, 57344, 49152, 40960, 32768, 24576, 16384, 8192, 0};
+	// static const uint16_t discomforts[9] = {65535, 57344, 49152, 40960, 32768, 24576, 16384, 8192, 0};
 	gridList = gridStartIterate(psDroid->pos.x, psDroid->pos.y, steerAwayRadius);
 	for (GridIterator gi = gridList.begin(); gi != gridList.end(); ++gi)
 	{
@@ -1389,10 +1491,18 @@ static void moveCalcDroidSlide(DROID *psDroid, int *pmx, int *pmy)
 			// collision detected
 			// "hard" avoidance: prevent overlapping at all cost, will be handled below
 			psObst = psOther;
-			continue;
+			// continue;
 		}
 		// TODO: if not moving, then skip steering
-		
+		// first, get discretized direction
+		if (psDroid->player == 0) _pdebug = true;
+		const auto preferred_dir = leastDiscomfortable(approx_dir, adjx, adjy, propulsion, psDroid->player);
+		psDroid->sMove.moveDir = dir_to_moveDir[(int) preferred_dir];
+		moveGetDroidPosDiffs(psDroid, pmx, pmy);
+		_pdebug = false;
+		if (psDroid->player == 0 && approx_dir != preferred_dir) debug (LOG_FLOWFIELD, "pref dir was: DIR_%i, moving %i", (int) preferred_dir - 1, (int) approx_dir - 1);
+
+		#if 0
 		// "soft" avoidance: hint our droid to steer away from dynamic obstacles
 		// check that we are in this droid's gravity pool
 		uint16_t other_cellx, other_celly, self_cellx, self_celly;
@@ -1404,6 +1514,7 @@ static void moveCalcDroidSlide(DROID *psDroid, int *pmx, int *pmy)
 		diff_celly = self_celly - other_celly;
 		max_diff_cell = std::max(std::abs(diff_cellx), std::abs(diff_celly));
 		// too far to make decisions
+		
 		if (max_diff_cell >= 9) continue;
 //		ASSERT_OR_RETURN(, max_diff_cell <= 8, "wrong assumptions??");
 		// ok now there is a risk that we could enter discomfort zone
@@ -1434,11 +1545,15 @@ static void moveCalcDroidSlide(DROID *psDroid, int *pmx, int *pmy)
 		//const auto npmx = *pmx + repulsion_dx;
 		//const auto npmy = *pmy + repulsion_dy;
 		// repulsion: 5052 4781, rx ry 20558 -42700, adjxy 4964 13790, other 4925 13871
+		#if 0
 		if (psDroid->player == 0)
 			debug (LOG_FLOWFIELD, "repulsion against %i: %i %i (was %i %i), ratio %i %li %li, adjxy %i %i, obst %i %i, %i",
 			psOther->id, repulsion_dx, repulsion_dy, *pmx, *pmy, ratio, ratiox, ratioy, adjx, adjy, xdiff, ydiff, distsq_cells);
+		#endif
 		*pmx = (*pmx) - repulsion_dx;
 		*pmy = (*pmy) - repulsion_dy;
+		#endif
+		
 	}
 	
 	
@@ -1482,7 +1597,7 @@ static void moveCalcDroidSlide(DROID *psDroid, int *pmx, int *pmy)
 	if (psObst != nullptr)
 	{
 		// Try to slide round it
-		moveCalcSlideVector(psDroid, psObst->pos.x, psObst->pos.y, pmx, pmy);
+		// moveCalcSlideVector(psDroid, psObst->pos.x, psObst->pos.y, pmx, pmy);
 		// debug (LOG_FLOWFIELD, "get repulsion");
 		
 	}
@@ -1855,14 +1970,6 @@ static int moveCalcNormalSpeed(DROID *psDroid, int fSpeed, uint16_t iDroidDir, S
 	return normalSpeed;
 }
 
-static void moveGetDroidPosDiffs(DROID *psDroid, int32_t *pDX, int32_t *pDY)
-{
-	int32_t move = psDroid->sMove.speed * EXTRA_PRECISION;  // high precision
-
-	*pDX = iSinR(psDroid->sMove.moveDir, move);
-	*pDY = iCosR(psDroid->sMove.moveDir, move);
-}
-
 /// Adjust speed wrt distance to target
 // see if the droid is close to the final way point
 static void moveCheckFinalWaypoint(DROID *psDroid, SDWORD *pSpeed)
@@ -1899,7 +2006,7 @@ static void moveUpdateDroidPos(DROID *psDroid, int32_t dx, int32_t dy)
 	}
 	const auto _dx = gameTimeAdjustedAverage(dx, EXTRA_PRECISION);
 	const auto _dy = gameTimeAdjustedAverage(dy, EXTRA_PRECISION);
-	if (psDroid->player == 0) debug (LOG_FLOWFIELD, "speed for this frame was %i %i, %i %i", dx, dy, _dx, _dy);
+	// if (psDroid->player == 0) debug (LOG_FLOWFIELD, "speed for this frame was %i %i, %i %i", dx, dy, _dx, _dy);
 	psDroid->pos.x += _dx;
 	psDroid->pos.y += _dy;
 
@@ -2025,11 +2132,12 @@ static void moveUpdatePersonModel(DROID *psDroid, SDWORD speed, uint16_t directi
 	/* people don't skid at the moment so set zero perpendicular speed */
 	fPerpSpeed = 0;
 
-	moveCombineNormalAndPerpSpeeds(psDroid, fNormalSpeed, fPerpSpeed, iDroidDir);
+	moveCombineNormalAndPerpSpeeds(psDroid, fNormalSpeed, fPerpSpeed, iDroidDir);	
 	moveGetDroidPosDiffs(psDroid, &dx, &dy);
 	moveOpenGates(psDroid);
 	// commenting this completely removes collisions
 	moveCalcDroidSlide(psDroid, &dx, &dy);
+
 	moveCalcBlockingSlide(psDroid, &dx, &dy, direction, &slideDir);
 	moveUpdateDroidPos(psDroid, dx, dy);
 
@@ -2745,28 +2853,182 @@ void ff_applyForce(DROID &droid, Vector2f force)
 	droid.sMove.physics.acceleration = force; // (force / droid.sMove.physics.mass);
 }
 
-// add an area of discomfort around a dynamic obstacle
-void addDynamicObstacle(uint16_t worldx, uint16_t worldy)
+/// Adds discomfort only at where obstacle is located, and that's it.
+/// useful for currently immobile dynamic obstacles
+static inline void cells_addDynamicObstacle(uint16_t cellx, uint16_t celly, uint8_t cell_radius)
+{
+	// the cell right under dynamic obstacle have highest discomfort
+	static const uint16_t dynamic_obstacle = 65535;
+	for (int dy = 0; dy < cell_radius - 1; dy++)
+		for (int dx = 0; dx < cell_radius - 1; dx++)
+	{
+		comfortField.at(cells_2Dto1D(cellx + dx, celly + dy)) = -dynamic_obstacle;		
+	}
+}
+
+void cells_addDynamicObstacleArea_straight(uint16_t cellx, uint16_t celly, uint8_t cell_radius, Directions dir)
+{
+	#define FORCE(df) -(DISCOMFORT_FORCE + 1 - df)
+	switch(dir)
+	{
+		case Directions::DIR_1:
+		{
+			for (int df = 1; df < DISCOMFORT_FORCE + 1; df++)
+			for (int dx = 0; dx < cell_radius; dx++)
+			{
+				if (!(IS_BETWEEN(cellx + dx, 0, CELL_X_LEN))) continue;
+				if (!(IS_BETWEEN(celly - df, 0, CELL_Y_LEN))) continue;
+				comfortField.at(cells_2Dto1D(cellx + dx, celly - df)) += FORCE(df);
+			}
+		break;
+		}
+		case Directions::DIR_3:
+		{
+			for (int df = 1; df < DISCOMFORT_FORCE + 1; df++)
+			for (int dy = 0; dy < cell_radius; dy++)
+			{
+				if (!(IS_BETWEEN(cellx - df, 0, CELL_X_LEN))) continue;
+				if (!(IS_BETWEEN(celly + dy, 0, CELL_Y_LEN))) continue;
+				comfortField.at(cells_2Dto1D(cellx - df, celly + dy)) += FORCE(df);
+			}
+		break;
+		}
+		case Directions::DIR_4:
+		{
+			for (int df = 1; df < DISCOMFORT_FORCE + 1; df++)
+			for (int dy = 0; dy < cell_radius; dy++)
+			{
+				if (!(IS_BETWEEN(cellx + df + cell_radius - 1, 0, CELL_X_LEN))) continue;
+				if (!(IS_BETWEEN(celly + dy, 0, CELL_Y_LEN))) continue;
+				comfortField.at(cells_2Dto1D(cellx + df + cell_radius - 1, celly + dy)) += FORCE(df);
+			}
+		break;
+		}
+		case Directions::DIR_6:
+		{
+			for (int df = 1; df < DISCOMFORT_FORCE + 1; df++)
+			for (int dx = 0; dx < cell_radius; dx++)
+			{
+				if (!(IS_BETWEEN(cellx + dx, 0, CELL_X_LEN))) continue;
+				if (!(IS_BETWEEN(celly + df + cell_radius - 1, 0, CELL_Y_LEN))) continue;
+				comfortField.at(cells_2Dto1D(cellx + dx, celly + df + cell_radius - 1)) += FORCE(df);
+			}
+		break;
+		}
+		// unreachable
+		default: exit(1);
+	}
+}
+
+void cells_addDynamicObstacleArea_diagonal(uint16_t cellx, uint16_t celly, uint8_t cell_radius, Directions dir)
+{
+	#define FORCE(df) -(DISCOMFORT_FORCE + 1 - df)
+	uint16_t rby = celly + cell_radius - 1;
+	uint16_t rbx = cellx + cell_radius - 1;
+	switch(dir)
+	{
+		case Directions::DIR_0:
+		{
+			for (int df = 1; df < DISCOMFORT_FORCE + 1; df++)
+			for (int dx = 0; dx < cell_radius; dx++)
+			{
+				if (!(IS_BETWEEN(cellx + dx, 0, CELL_X_LEN))) continue;
+				if (!(IS_BETWEEN(celly + df + cell_radius - 1, 0, CELL_Y_LEN))) continue;
+				comfortField.at(cells_2Dto1D(cellx - df + dx, celly - df)) += FORCE(df);
+			}
+			for (int df = 1; df < DISCOMFORT_FORCE + 1; df++)
+			for (int dy = 0; dy < cell_radius; dy++)
+			{
+				if (!(IS_BETWEEN(cellx - df, 0, CELL_X_LEN))) continue;
+				if (!(IS_BETWEEN(celly - df + dy, 0, CELL_Y_LEN))) continue;
+				comfortField.at(cells_2Dto1D(cellx - df, celly - df + dy)) += FORCE(df);
+			}
+		break;
+		}
+		case Directions::DIR_2:
+		{
+			for (int df = 1; df < DISCOMFORT_FORCE + 1; df++)
+			for (int dx = 0; dx < cell_radius; dx++)
+			{
+				if (!(IS_BETWEEN(cellx + df + dx, 0, CELL_X_LEN))) continue;
+				if (!(IS_BETWEEN(celly - df, 0, CELL_Y_LEN))) continue;
+				comfortField.at(cells_2Dto1D(cellx + df + dx, celly - df)) += FORCE(df);
+			}
+			for (int df = 1; df < DISCOMFORT_FORCE + 1; df++)
+			for (int dy = 0; dy < cell_radius; dy++)
+			{
+				if (!(IS_BETWEEN(rbx + df, 0, CELL_X_LEN))) continue;
+				if (!(IS_BETWEEN(rby - df - dy, 0, CELL_Y_LEN))) continue;
+				comfortField.at(cells_2Dto1D(rbx + df, rby - df - dy)) += FORCE(df);
+			}
+			break;
+		}
+		case Directions::DIR_5:
+		{
+			for (int df = 1; df < DISCOMFORT_FORCE + 1; df++)
+			for (int dx = 0; dx < cell_radius; dx++)
+			{
+				if (!(IS_BETWEEN(cellx - df + dx, 0, CELL_X_LEN))) continue;
+				if (!(IS_BETWEEN(rby + df, 0, CELL_Y_LEN))) continue;
+				comfortField.at(cells_2Dto1D(cellx - df + dx, rby + df)) = FORCE(df);
+			}
+			for (int df = 1; df < DISCOMFORT_FORCE + 1; df++)
+			for (int dy = 0; dy < cell_radius; dy++)
+			{
+				if (!(IS_BETWEEN(cellx - df, 0, CELL_X_LEN))) continue;
+				if (!(IS_BETWEEN(celly + df + dy, 0, CELL_Y_LEN))) continue;
+				comfortField.at(cells_2Dto1D(cellx - df, celly + df + dy)) = FORCE(df);
+			}
+			break;
+		}
+		case Directions::DIR_7:
+		{
+			for (int df = 1; df < DISCOMFORT_FORCE + 1; df++)
+			for (int dx = 0; dx < cell_radius; dx++)
+			{
+				if (!(IS_BETWEEN(cellx + df + dx, 0, CELL_X_LEN))) continue;
+				if (!(IS_BETWEEN(rby + df, 0, CELL_Y_LEN))) continue;
+				comfortField.at(cells_2Dto1D(cellx + df + dx, rby + df)) += FORCE(df);
+			}
+			for (int df = 1; df < DISCOMFORT_FORCE + 1; df++)
+			for (int dy = 0; dy < cell_radius; dy++)
+			{
+				if (!(IS_BETWEEN(rbx + df, 0, CELL_X_LEN))) continue;
+				if (!(IS_BETWEEN(celly + df + dy, 0, CELL_Y_LEN))) continue;
+				comfortField.at(cells_2Dto1D(rbx + df, celly + df + dy)) += FORCE(df);
+			}
+			break;
+		}
+		// unreachable
+		default: exit(1);
+	}
+}
+
+/// Adds a discomfort zone in the direction of movement.
+/// The zone will be cell_radius-wide and 4 cells-(=one tile)-long
+void cells_addDynamicObstacleArea(uint16_t cellx, uint16_t celly, uint8_t cell_radius, uint16_t moveDir)
+{
+	Directions dir = closestDirection(moveDir);
+	ASSERT_OR_RETURN(, dir != Directions::DIR_NONE, "assumption failed");
+	if (dir_is_diagonal[(int) dir])
+		cells_addDynamicObstacleArea_diagonal(cellx, celly, cell_radius, dir);
+	else
+		cells_addDynamicObstacleArea_straight(cellx, celly, cell_radius, dir);
+}
+
+static void droidAddDynamicObstacle (const DROID &psCurr)
 {
 	uint16_t cellx, celly;
-	//static const uint16_t discomforts[8] = {65535, 57344, 49152, 40960, 32768, 24576, 16384, 8192};
-	// dont really care about the value here, but shouldn't be confused with dynamic obstacle origin
-	static const uint16_t discomfort = 1;
-	static const uint16_t dynamic_obstacle = 65535;
-	world_to_cell(worldx, worldy, cellx, celly);
-	static const auto offset = 4; // cell units
-	for (int dy = 0; dy < offset; dy++)
+	world_to_cell(psCurr.pos.x, psCurr.pos.y, cellx, celly);
+	if (psCurr.sMove.speed == 0)
 	{
-		for (int dx = 0; dx < offset; dx++)
-		{
-			const auto _x = cellx + dx;
-			const auto _y = celly + dy;
-			if (!(IS_BETWEEN(_x, 0, CELL_X_LEN))) continue;
-			if (!(IS_BETWEEN(_y, 0, CELL_Y_LEN))) continue;
-			comfortField.at(cells_2Dto1D(_x, _y)) -= discomfort;
-		}
+		cells_addDynamicObstacle(cellx, celly, moveDroidSizeExtent(&psCurr));
 	}
-	comfortField.at(cells_2Dto1D(cellx, celly)) = dynamic_obstacle;
+	else
+	{
+		cells_addDynamicObstacleArea(cellx, celly, moveDroidSizeExtent(&psCurr), psCurr.sMove.moveDir);
+		cells_addDynamicObstacle(cellx, celly, moveDroidSizeExtent(&psCurr));
+	}
 }
 
 void beforeUpdateDroid()
@@ -2775,23 +3037,32 @@ void beforeUpdateDroid()
 	// TODO: resize doesn't need to be done every tick
 	// only once, when map size is known. But I don't think it's hurting.
 	comfortField.resize(CELL_AREA, 0);
-	// update discomforts
-	DROID *psNext = nullptr;
+	auto start = std::chrono::high_resolution_clock::now();
+	int counter = 0;
+	// being discomfortable when in the way of other droids:
 	for (unsigned i = 0; i < MAX_PLAYERS; i++)
 	{
-		for (DROID *psCurr = apsDroidLists[i]; psCurr != nullptr; psCurr = psNext)
+		for (const DROID *psCurr = apsDroidLists[i]; psCurr != nullptr; psCurr = psCurr->psNext)
 		{
-			// FIXME: hmm ignore VTOL for now, they have different discomfort fields 
 			if (isVtolDroid(psCurr)) continue;
-			addDynamicObstacle(psCurr->pos.x, psCurr->pos.y);
+			droidAddDynamicObstacle(*psCurr);
+			counter++;
 		}
 
-		for (DROID *psCurr = mission.apsDroidLists[i]; psCurr != nullptr; psCurr = psNext)
+		for (DROID *psCurr = mission.apsDroidLists[i]; psCurr != nullptr; psCurr = psCurr->psNext)
 		{
 			if (isVtolDroid(psCurr)) continue;
-			addDynamicObstacle(psCurr->pos.x, psCurr->pos.y);
+			droidAddDynamicObstacle(*psCurr);
+			counter++;
 		}
 	}
+	// TODO: being discomfortable when has full HP, is doing nothing, and is within Repair Station range
+	// ...
+	// TODO: being discomfortable when ordered to build, and too far away from building target (? maybe not needed)
+	// ...
+	//auto end = std::chrono::high_resolution_clock::now();
+	//auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+	//debug (LOG_FLOWFIELD, "beforeUpdate took %li for %i droids", duration.count(), counter);
 }
 
 /* Frame update for the movement of a tracked droid */
@@ -2805,10 +3076,12 @@ void moveUpdateDroid(DROID *psDroid)
 	PROPULSION_STATS	*psPropStats;
 	Vector3i 			pos(0, 0, 0);
 	bool				bStarted = false, bStopped;
+	uint8_t				mapx, mapy;
 
 
 	CHECK_DROID(psDroid);
-
+	mapx = map_coord (psDroid->pos.x);
+	mapy = map_coord (psDroid->pos.y);
 	psPropStats = asPropulsionStats + psDroid->asBits[COMP_PROPULSION];
 	ASSERT_OR_RETURN(, psPropStats != nullptr, "Invalid propulsion stats pointer");
 
@@ -2868,7 +3141,7 @@ void moveUpdateDroid(DROID *psDroid)
 		// fallthrough
 	case MOVENAVIGATE:
 		// Get the next control point
-		if (!moveNextTarget(psDroid))
+		if (moveReachedWayPoint(psDroid) && !moveNextTarget(psDroid))
 		{
 			// No more waypoints - finish
 			if (psPropStats->propulsionType == PROPULSION_TYPE_LIFT)
@@ -2877,6 +3150,7 @@ void moveUpdateDroid(DROID *psDroid)
 			}
 			else
 			{
+				debug (LOG_FLOWFIELD, "reached destination : marking as inactive %i", psDroid->id);
 				psDroid->sMove.Status = MOVEINACTIVE;
 			}
 			break;
@@ -2899,18 +3173,16 @@ void moveUpdateDroid(DROID *psDroid)
 		// fallthrough
 	case MOVEPOINTTOPOINT:
 	case MOVEPAUSE:
-		if (moveReachedWayPoint(psDroid))
+		if (droidReachedGoal(*psDroid))
 		{
-			if (!moveNextTarget(psDroid))
-			{
-				objTrace(psDroid->id, "Arrived at destination!");
-				psDroid->sMove.Status = MOVETURN;
-				break;
-			}
+			debug (LOG_FLOWFIELD, "time to stop! %i", psDroid->id);
+			psDroid->sMove.Status = MOVETURN;
+			break;
 		}
 		if (tryGetFlowfieldVector(*psDroid, moveDir))
 		{
-			moveSpeed = 200; //psDroid->sMove.physics.maxSpeed;// iHypot(v2i); //moveCalcDroidSpeed(psDroid);
+			//moveSpeed = 200; //psDroid->sMove.physics.maxSpeed;// iHypot(v2i); //moveCalcDroidSpeed(psDroid);
+			moveSpeed = moveCalcDroidSpeed(psDroid);
 			// if (psDroid->player == 0) debug (LOG_FLOWFIELD, "moveDir %i from (%i %i)", moveDir, v2i.x, v2i.y);
 		}
 		else

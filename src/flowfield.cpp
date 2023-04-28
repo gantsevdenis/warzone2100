@@ -98,11 +98,18 @@ void flowfieldToggle()
 	flowfieldEnabled = !flowfieldEnabled;
 }
 
-/// For each X-tile of the map, holds the ID of a structure on it (if any).
-std::array<const STRUCTURE*, 256> structuresPositions = {nullptr};
-
 constexpr const uint8_t COST_NOT_PASSABLE = 255;
-constexpr const uint8_t COST_MIN = 1; // default cost 
+
+// having minimum cost geater than 1 allows us to interpolate this value
+// for sub-tile (="cell") resolution:
+// instead of searching for a path in 1024x1024 grid,
+// we can search in 256x256 grid, and then interpolate the results
+// => higher resolution for (almost) free
+// It's only possible with Structures, because they don't move
+// and always fill at least one full tile
+// I set this to 4, because one tile is 4x4 cells
+constexpr const uint8_t COST_MIN = 4; // default cost
+
 static bool _drawImpassableTiles = true;
 // Decides how much slopes should be avoided
 constexpr const float SLOPE_COST_BASE = 0.01f;
@@ -203,11 +210,11 @@ void calculateFlowfieldAsync(uint16_t worldx, uint16_t worldy, PROPULSION_TYPE p
 
 	if (flowfieldCurrentlyActiveRequests[propulsionIdx2[request.propulsion]].count(map_goal))
 	{
-		// if (request.player == 0) debug (LOG_FLOWFIELD, "already waiting for %i (mapx=%i mapy=%i)", map_goal, mapx, mapy);
+		if (request.player == 0) debug (LOG_FLOWFIELD, "already waiting for %i (mapx=%i mapy=%i)", map_goal, mapx, mapy);
 		return;
 	}
 
-	// if (player == 0) debug (LOG_FLOWFIELD, "new async request for %i (mapx=%i mapy=%i)", map_goal, mapx, mapy);
+	if (player == 0) debug (LOG_FLOWFIELD, "new async request for %i (mapx=%i mapy=%i)", map_goal, mapx, mapy);
 	wzMutexLock(ffpathMutex);
 
 	bool isFirstRequest = flowfieldRequests.empty();
@@ -340,6 +347,11 @@ struct CostField
 		tile_setCost(mapx, mapy, COST_NOT_PASSABLE);
 	}
 
+	bool tile_isImpassable(uint8_t mapx, uint8_t mapy) const
+	{
+		return cost.at(tiles_2Dto1D(mapx, mapy)) == COST_NOT_PASSABLE;
+	}
+	
 	uint8_t tile_getCost(uint8_t mapx, uint8_t mapy) const
 	{
 		return this->cost.at(tiles_2Dto1D(mapx, mapy));
@@ -350,6 +362,31 @@ struct CostField
 		return this->cost.at(mapIdx);
 	}
 
+	/// For a given tile, return an 8 bit number where each bit is 0 if
+	/// tile is free, 1 if blocked.
+	/// DIR_0 is the most left bit, DIR_7 is the most right
+	/// end of maps are regarded as obstacles
+	uint8_t world_getImpassableArea (uint16_t worldx, uint16_t worldy) const
+	{
+		uint8_t mapx, mapy;
+		mapx = map_coord(worldx);
+		mapy = map_coord(worldy);
+		uint8_t out = 255;
+		for (int neighb = (int) Directions::DIR_0; neighb < DIR_TO_VEC_SIZE; neighb++)
+		{
+			const auto neighb_x = mapx + dir_neighbors[neighb][0];
+			const auto neighb_y = mapy + dir_neighbors[neighb][1];
+			bool blocked = false;
+			if (!(IS_BETWEEN(neighb_x, 0, CELL_X_LEN))) blocked = true;
+			if (!(IS_BETWEEN(neighb_y, 0, CELL_Y_LEN))) blocked = true;
+			blocked |= tile_isImpassable(neighb_x, neighb_y);
+			// substract 1, because Directions::DIR_0 is 1
+			const int shift_to_position = 9 - neighb - 1;
+			out &= (1 << shift_to_position) & ((int) blocked);
+		}
+		return out;
+	}
+	
 	void adjust () {cost.fill(COST_MIN);}
 };
 
@@ -361,6 +398,11 @@ std::array<CostField*, 4> costFields
 	new CostField(), // PROPULSION_TYPE_HOVER
 	new CostField(), // PROPULSION_TYPE_LIFT
 };
+
+uint8_t world_getImpassableArea(uint16_t worldx, uint16_t worldy, PROPULSION_TYPE propulsion)
+{
+	return costFields[propulsionIdx2[propulsion]]->world_getImpassableArea(worldx, worldy);
+}
 
 uint8_t minIndex (uint16_t a[], size_t a_len)
 {
@@ -444,7 +486,7 @@ public:
 		mapy = map_coord(worldy);
 		return impassable.at(tiles_2Dto1D(mapx, mapy));
 	}
-
+	
 	void tile_setImpassable (uint16_t tileIdx)
 	{
 		impassable.at(tileIdx) = COST_NOT_PASSABLE;
@@ -452,7 +494,7 @@ public:
 
 	bool tile_isImpassable (uint16_t tileIdx) const { return impassable.at(tileIdx);}
 	
-	bool tile_isGoal (uint16_t mapx, uint16_t mapy) const
+	bool tile_isGoal (uint8_t mapx, uint8_t mapy) const
 	{
 		return isInsideGoal(goalX, goalY, mapx, mapy, goalXExtent, goalYExtent);
 	}
@@ -690,7 +732,7 @@ private:
 			
 			// only iterate over 4 neighbours, not 8
 			// because otherwise diagonals in integration field arent yet initialized (they are still IMPASSABLE, and would block LOS)
-			// we still check every tile, no worries
+			// we still check every tile, and still do have diagonal movement, no worries
 			for (auto &neighb_it : dir_straight)
 			{
 				int neighb = (int) neighb_it;
@@ -716,7 +758,9 @@ bool droidReachedGoal (const DROID &psDroid)
 	if (map_results->count(map_goal) > 0)
 	{
 		const auto ff = map_results->at(map_goal);
-		return ff->tile_isGoal(selfx, selfy);
+		const bool out = ff->tile_isGoal(selfx, selfy);
+		// if (psDroid.player == 0) debug (LOG_INFO, "inside goal %i: %i %i (→) %i %i", out, selfx, selfy, ff->goalX, ff->goalY);
+		return out;
 	}
 	//if (psDroid.player == 0) debug (LOG_ERROR, "asking for a flowfield for droid %i, but it has none", psDroid.id);
 	return false;
@@ -773,7 +817,7 @@ bool tryGetFlowfieldDirection(PROPULSION_TYPE prop, const Position &pos,
 	return true;
 }
 
-bool tryGetFlowfieldVector(DROID &droid, uint16_t &out)
+bool tryGetFlowfieldVector(const DROID &droid, uint16_t &out)
 {
 	const auto dest = droid.sMove.destination;
 	const auto radius = moveObjRadius(&droid);
@@ -781,6 +825,13 @@ bool tryGetFlowfieldVector(DROID &droid, uint16_t &out)
 	bool found = tryGetFlowfieldDirection(psPropStats->propulsionType, droid.pos, dest, radius, out);
 	if (!found) return false;
 	return true;
+}
+
+Flowfield * droidGetFFDirections (const DROID &psDroid)
+{
+	const auto dest = psDroid.sMove.destination;
+	PROPULSION_STATS *psPropStats = asPropulsionStats + psDroid.asBits[COMP_PROPULSION];
+	return _tryGetFlowfieldForTarget(dest.x, dest.y, psPropStats->propulsionType, 0);	
 }
 
 void processFlowfield(FLOWFIELDREQUEST request)
@@ -1048,7 +1099,7 @@ static void drawSquare2 (const glm::mat4 &mvp, int sidelen, int startX, int star
 	}, mvp, color);
 }
 
-static void (*curDraw) (const glm::mat4&, int, int, int, int, PIELIGHT) = &drawSquare2;
+static void (*curDraw) (const glm::mat4&, int, int, int, int, PIELIGHT) = &drawSquare;
 static bool isOne = false;
 static bool drawYellowLines = false;
 static bool drawVectors = false;
@@ -1063,6 +1114,7 @@ void toggleDrawSquare()
 	{
 		curDraw = &drawSquare2;
 		isOne = false;
+		
 	}
 	else
 	{

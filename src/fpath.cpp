@@ -470,11 +470,12 @@ FPATH_RETVAL fpathDroidRoute(DROID *psDroid, SDWORD tX, SDWORD tY, FPATH_MOVETYP
 		if (tryGetFlowfieldForTarget(tX, tY, psPropStats->propulsionType, psDroid->player))
 		{
 			psDroid->sMove.pathIndex = 0;
+			psDroid->sMove.destination = {tX, tY}; 
 			psDroid->sMove.Status = MOVENAVIGATE;
 			psDroid->sMove.asPath = { { tX, tY } };
 			return FPR_OK;
 		} else {
-			calculateFlowfieldAsync(tX, tY, psPropStats->propulsionType, psDroid->player, moveObjRadius(psDroid));
+			calculateFlowfieldAsync(tX, tY, psPropStats->propulsionType, psDroid->player);
 			return FPR_WAIT;
 		}
 	}
